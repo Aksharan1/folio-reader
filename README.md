@@ -9,7 +9,7 @@ No accounts, no uploads, no build step. Your books, progress and highlights stay
 
 - **Library**: grid and list layouts, filters (reading, unread, finished), sorting, instant search, favourites, and a browsable author index. Books without cover art get a generated cover.
 - **Distraction-free reader**: paginated pages that break between lines, so no line appears twice. A page-turn animation (can be switched off), click or keyboard navigation, and a progress scrubber.
-- **Appearance**: five themes (Paper, Sepia, Dusk, Midnight, Black), brightness, 12 fonts (including the bundled Literata, a typeface designed for e-reading), text size, line spacing, margins and alignment, with a live preview.
+- **Appearance**: five themes (Paper, Sepia, Dusk, Midnight, Black), brightness, 11 fonts, text size, line spacing, margins and alignment, with a live preview.
 - **Highlights & notes**: select text to highlight it in one of five colours, attach notes, and copy passages. Everything is collected per book and across your library.
 - **Bookmarks**: one keypress saves the page you're on.
 - **Full-text search**: finds every match in the book with context, and takes you to the exact occurrence.
@@ -43,7 +43,7 @@ npm start            # serves the app at http://localhost:8080
 
 `npm start` only needs Node.js 18+. No `npm install` is required to run the app. You can also open `index.html` directly from disk. Everything works that way except the bundled **Try a sample book** button, because browsers block `fetch` on `file://` pages.
 
-Add books with **Add books**, or drag `.epub` files onto the window.
+Add books with **Add Books**, or drag `.epub` files onto the window.
 
 ## Keyboard shortcuts
 
@@ -73,7 +73,6 @@ js/
   library.js          IndexedDB storage, preferences, library queries
   app.js              UI: library views, reader chrome, panels, keyboard
 vendor/               epub.js and JSZip (pre-built, loaded with <script>)
-fonts/                Literata, bundled so the app works offline
 samples/              a public-domain sample book
 scripts/serve.mjs     zero-dependency static server (npm start)
 scripts/screenshots.mjs  regenerates the README screenshots
@@ -100,7 +99,6 @@ Folio has been developed and tested in Chromium-based browsers. It relies on mod
 ## Credits
 
 - [epub.js](https://github.com/futurepress/epub.js) (BSD-2-Clause) and [JSZip](https://stuk.github.io/jszip/) (MIT) do the EPUB parsing.
-- [Literata](https://github.com/googlefonts/literata) by TypeTogether is bundled in `fonts/` under the SIL Open Font License (`fonts/OFL-Literata.txt`).
 - The sample book, *Frankenstein* by Mary Wollstonecraft Shelley, comes from [Project Gutenberg](https://www.gutenberg.org/ebooks/84).
 - The other titles in the README screenshots are tiny demo files built by `scripts/screenshots.mjs` from public-domain opening lines.
 

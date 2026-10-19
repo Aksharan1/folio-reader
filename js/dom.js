@@ -93,7 +93,7 @@ function icon(name, size) {
 function logoMark() {
   const span = document.createElement('span');
   span.className = 'logo-mark';
-  span.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24"><path fill="currentColor" opacity=".6" d="M12 6.5C10.3 5 7.7 4.2 4.5 4.2c-.8 0-1.5.7-1.5 1.5v11.6c0 .8.7 1.5 1.5 1.5 3 0 5.4.7 7.5 2.2z"/><path fill="currentColor" d="M12 6.5c1.7-1.5 4.3-2.3 7.5-2.3.8 0 1.5.7 1.5 1.5v11.6c0 .8-.7 1.5-1.5 1.5-3 0-5.4.7-7.5 2.2z"/></svg>';
+  span.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24"><path fill="currentColor" opacity=".55" d="M12 6.5C10.3 5 7.7 4.2 4.5 4.2c-.8 0-1.5.7-1.5 1.5v11.6c0 .8.7 1.5 1.5 1.5 3 0 5.4.7 7.5 2.2z"/><path fill="currentColor" d="M12 6.5c1.7-1.5 4.3-2.3 7.5-2.3.8 0 1.5.7 1.5 1.5v11.6c0 .8-.7 1.5-1.5 1.5-3 0-5.4.7-7.5 2.2z"/></svg>';
   return span;
 }
 
@@ -109,23 +109,18 @@ function hashStr(s) {
   return x >>> 0;
 }
 
-/* bookcloth colours for covers we have to make ourselves: oxblood, bottle green, navy,
-   ochre, plum, slate, tobacco, teal */
-const CLOTHS = ['#5a2230', '#1f3f34', '#1d2b4c', '#6a4a1f', '#3d3253', '#2e3c42', '#4b2c21', '#22433f'];
-
-/* a cloth binding with the title stamped in gilt inside a ruled panel */
 function generatedCover(title, author) {
-  const cloth = CLOTHS[hashStr((title || '') + '|' + (author || '')) % CLOTHS.length];
-  return h('div.cover-gen', { style: { '--cloth': cloth } },
-    h('div.cg-panel',
-      h('div.cg-title', title || 'Untitled'),
-      author ? h('div.cg-author', author) : null,
-    ),
+  const hsh = hashStr((title || '') + '|' + (author || ''));
+  const hue = hsh % 360;
+  const hue2 = (hue + 28 + (hsh >> 9) % 40) % 360;
+  const el = h('div.cover-gen', {
+    style: { background: `linear-gradient(155deg, hsl(${hue} 42% 34%), hsl(${hue2} 48% 16%))` },
+  },
+    h('div.cg-rule'),
+    h('div.cg-title', title || 'Untitled'),
+    h('div.cg-author', author || ''),
   );
-}
-
-function clothFor(name) {
-  return CLOTHS[hashStr(name || '') % CLOTHS.length];
+  return el;
 }
 
 /* ---------- formatting ---------- */
@@ -135,13 +130,6 @@ function fmtDuration(ms) {
   const m = Math.round(ms / 60000);
   if (m < 60) return m + 'm';
   return Math.floor(m / 60) + 'h ' + (m % 60) + 'm';
-}
-
-/* for sentences: "2 hr 24 min" */
-function fmtDurationLong(ms) {
-  const m = Math.max(1, Math.round((ms || 0) / 60000));
-  if (m < 60) return m + ' min';
-  return Math.floor(m / 60) + ' hr' + (m % 60 ? ' ' + (m % 60) + ' min' : '');
 }
 
 function fmtAgo(t) {

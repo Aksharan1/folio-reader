@@ -19,7 +19,6 @@
     "vendor": "node -e \"const fs=require('fs');fs.copyFileSync('node_modules/epubjs/dist/epub.min.js','vendor/epub.min.js');fs.copyFileSync('node_modules/jszip/dist/jszip.min.js','vendor/jszip.min.js');console.log('vendor/ updated')\""
   },
   "devDependencies": {
-    "@fontsource-variable/literata": "^5.3.0",
     "epubjs": "^0.3.93",
     "jszip": "^3.10.2",
     "puppeteer": "^25.12.0"
