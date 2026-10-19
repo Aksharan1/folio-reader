@@ -1,0 +1,29 @@
+{
+  "name": "folio-reader",
+  "version": "1.0.0",
+  "description": "A fast, private EPUB reader that runs entirely in your browser.",
+  "private": true,
+  "license": "MIT",
+  "keywords": [
+    "epub",
+    "ebook",
+    "reader",
+    "epubjs",
+    "indexeddb",
+    "offline"
+  ],
+  "scripts": {
+    "start": "node scripts/serve.mjs",
+    "test": "node tests/smoke.mjs",
+    "screenshots": "node scripts/screenshots.mjs",
+    "vendor": "node -e \"const fs=require('fs');fs.copyFileSync('node_modules/epubjs/dist/epub.min.js','vendor/epub.min.js');fs.copyFileSync('node_modules/jszip/dist/jszip.min.js','vendor/jszip.min.js');console.log('vendor/ updated')\""
+  },
+  "devDependencies": {
+    "epubjs": "^0.3.93",
+    "jszip": "^3.10.2",
+    "puppeteer": "^25.12.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
