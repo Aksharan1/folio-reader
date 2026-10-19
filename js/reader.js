@@ -175,12 +175,15 @@ class Reader {
     /* tint search hits on the page they land on */
     if (query) data.highlights.push({ q: query, c: HL_COLORS.purple.fill });
 
-    /* theme colours win over the book's own stylesheet */
+    /* theme colours must win over the book's own stylesheet, including its !important rules
+       on classed elements (body.calibre, p.txt…): the :not(#id) prefix lifts our specificity
+       above any class selector. Inner backgrounds are cleared so the page colour shows through. */
+    const R = ':root:not(#er-theme)';
     const css = `
-html{background:${bg} !important;zoom:${s.fontSize / 100};}
-body{background:${bg} !important;color:${fg} !important;max-width:${m.width};margin:0 auto;padding:${m.vert}px min(${m.side}px, 6vw);}
-body *{color:inherit !important;}
-a, a *{color:${link} !important;}
+${R}{background:${bg} !important;zoom:${s.fontSize / 100};}
+${R} body{background:${bg} !important;color:${fg} !important;max-width:${m.width};margin:0 auto;padding:${m.vert}px min(${m.side}px, 6vw);}
+${R} body *:not(mark){color:inherit !important;background-color:transparent !important;}
+${R} body a, ${R} body a *{color:${link} !important;}
 img{max-width:100%;height:auto;}
 svg{max-width:100%;}
 ${famDecl}

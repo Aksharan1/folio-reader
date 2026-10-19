@@ -2,6 +2,7 @@
 // Boots the app in headless Chrome, imports the sample book and exercises the main flows.
 // Set SHOTS=<dir> to save screenshots of each step.
 import puppeteer from 'puppeteer';
+import JSZip from 'jszip';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { startServer } from '../scripts/serve.mjs';
@@ -166,6 +167,29 @@ try {
     return { n: app.library.records.length, anns: r.annotations.length, bms: r.bookmarks.length, tone: app.library.settings.tone, pct: r.pct };
   });
   check('survives reload', after.n === 1 && after.anns === 1 && after.bms === 1 && after.tone === 'midnight', JSON.stringify(after));
+
+  console.log('Themes beat book styles');
+  // many EPUBs paint their own backgrounds and force text colours with !important
+  const zip = new JSZip();
+  zip.file('mimetype', 'application/epub+zip', { compression: 'STORE' });
+  zip.file('META-INF/container.xml', '<?xml version="1.0"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>');
+  zip.file('OEBPS/content.opf', '<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="id"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="id">styled</dc:identifier><dc:title>Styled Book</dc:title><dc:creator>Test</dc:creator><dc:language>en</dc:language></metadata><manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/><item id="css" href="style.css" media-type="text/css"/><item id="c1" href="c1.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="c1"/></spine></package>');
+  zip.file('OEBPS/nav.xhtml', '<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><head><title>t</title></head><body><nav epub:type="toc"><ol><li><a href="c1.xhtml">One</a></li></ol></nav></body></html>');
+  zip.file('OEBPS/style.css', 'body.calibre{background-color:#fff !important;color:#000 !important}.wrap{background:#fffef8}p.txt{color:#111 !important}');
+  zip.file('OEBPS/c1.xhtml', '<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml"><head><title>One</title><link rel="stylesheet" href="style.css"/></head><body class="calibre"><div class="wrap"><h1>One</h1><p class="txt">Some text on the page.</p></div></body></html>');
+  const b64 = await zip.generateAsync({ type: 'base64' });
+  await page.evaluate(async (d) => {
+    const { rec } = await app.library.addBytes('styled.epub', Uint8Array.from(atob(d), (c) => c.charCodeAt(0)));
+    app.setReading({ tone: 'midnight' });
+    await app.openBook(rec);
+  }, b64);
+  await frameReady();
+  const styled = await page.evaluate(() => {
+    const d = app.reader.doc();
+    const cs = (sel, p) => getComputedStyle(d.querySelector(sel))[p];
+    return { body: cs('body', 'backgroundColor'), wrap: cs('.wrap', 'backgroundColor'), p: cs('p', 'color') };
+  });
+  check('page follows the theme', styled.body === 'rgb(23, 26, 39)' && styled.wrap === 'rgba(0, 0, 0, 0)' && styled.p === 'rgb(212, 215, 227)', JSON.stringify(styled));
 
   const appErrors = await page.evaluate(() => window.__errors);
   check('no runtime errors', !appErrors.length && !consoleErrors.length, [...appErrors, ...consoleErrors].join(' | ') || 'none');
