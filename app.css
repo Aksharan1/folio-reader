@@ -24,7 +24,40 @@
   --font-ui:     "Inter", "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
   --font-serif:  Georgia, "Iowan Old Style", "Palatino Linotype", Palatino, serif;
   --font-mono:   ui-monospace, "Cascadia Code", "SF Mono", Consolas, monospace;
+  --track:       rgba(255, 255, 255, .08);
+  --tint:        rgba(255, 255, 255, .04);
+  --knob:        #cfd3df;
   color-scheme: dark;
+}
+
+/* app themes, picked on the Settings page (they also set the reading page) */
+:root[data-theme="charcoal"] {
+  --bg: #0a0a0a; --surface: #121212; --surface-2: #1a1a1a; --surface-3: #252525; --elev: #1c1c1c;
+  --line: #262626; --line-strong: #353535;
+  --ink: #ececec; --ink-2: #a8a8a8; --ink-3: #6e6e6e;
+}
+:root[data-theme="dark"] {
+  --bg: #1a1715; --surface: #221e1b; --surface-2: #2a2522; --surface-3: #352f2a; --elev: #2c2724;
+  --line: #36302b; --line-strong: #463e37;
+  --ink: #ede6dc; --ink-2: #b3a99c; --ink-3: #82786c;
+}
+:root[data-theme="light"], :root[data-theme="sepia"] {
+  --accent: #5b52e6; --accent-2: #4f46e5; --accent-hover: #6a62ee;
+  --accent-soft: rgba(91, 82, 230, .1); --accent-line: rgba(91, 82, 230, .4);
+  --danger: #d4384f;
+  --shadow-lg: 0 14px 40px rgba(40, 32, 20, .14), 0 2px 6px rgba(40, 32, 20, .08);
+  --track: rgba(0, 0, 0, .09); --tint: rgba(0, 0, 0, .035); --knob: #ffffff;
+  color-scheme: light;
+}
+:root[data-theme="light"] {
+  --bg: #f6f6f3; --surface: #ffffff; --surface-2: #f0f0ec; --surface-3: #e6e6e1; --elev: #ffffff;
+  --line: #e2e2dd; --line-strong: #d0d0ca;
+  --ink: #1d1d1f; --ink-2: #55565c; --ink-3: #8a8b91;
+}
+:root[data-theme="sepia"] {
+  --bg: #f2ebdf; --surface: #faf5ec; --surface-2: #eee5d6; --surface-3: #e4d9c7; --elev: #fbf7f0;
+  --line: #e0d4c1; --line-strong: #d0c2ab;
+  --ink: #3b3226; --ink-2: #6c5f4e; --ink-3: #988a77;
 }
 
 * { box-sizing: border-box; }
@@ -94,7 +127,7 @@ h1, h2, h3 { font-weight: 650; }
 .seg button:hover { color: var(--ink); }
 .seg button.on { background: var(--surface-3); color: var(--ink); box-shadow: 0 1px 2px rgba(0, 0, 0, .3); }
 
-.pbar { flex: 1; height: 4px; border-radius: 4px; background: rgba(255, 255, 255, .08); overflow: hidden; min-width: 30px; }
+.pbar { flex: 1; height: 4px; border-radius: 4px; background: var(--track); overflow: hidden; min-width: 30px; }
 .pbar i { display: block; height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
 
 .range {
@@ -127,7 +160,7 @@ h1, h2, h3 { font-weight: 650; }
 }
 .switch i {
   position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%;
-  background: #cfd3df; transition: transform .2s, background .2s;
+  background: var(--knob); transition: transform .2s, background .2s;
 }
 .switch.on { background: var(--accent); border-color: var(--accent); }
 .switch.on i { transform: translateX(18px); background: #fff; }
@@ -140,7 +173,7 @@ kbd {
 
 .spinner {
   width: 14px; height: 14px; flex: none; border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, .18); border-top-color: var(--accent-2);
+  border: 2px solid var(--track); border-top-color: var(--accent-2);
   animation: spin .8s linear infinite;
 }
 .spinner-lg { width: 30px; height: 30px; border-width: 3px; }
@@ -357,7 +390,7 @@ body.reading .shell { display: none; }
 }
 .tab:hover { color: var(--ink); }
 .tab.on { background: var(--surface-3); color: var(--ink); box-shadow: 0 1px 2px rgba(0, 0, 0, .3); }
-.tab-count { font-size: 11.5px; padding: 1px 7px; border-radius: 99px; background: rgba(255, 255, 255, .06); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.tab-count { font-size: 11.5px; padding: 1px 7px; border-radius: 99px; background: var(--tint); color: var(--ink-3); font-variant-numeric: tabular-nums; }
 .tab.on .tab-count { background: var(--accent-soft); color: var(--accent-2); }
 
 /* ---------- annotations ---------- */
@@ -380,7 +413,7 @@ body.reading .shell { display: none; }
 .ann-body { flex: 1; min-width: 0; }
 .ann-quote { margin: 0; font: 15px/1.55 var(--font-serif); color: var(--ink); overflow-wrap: anywhere; }
 .ann-compact .ann-quote { font-size: 14px; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
-.ann-note { display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; padding: 8px 10px; border-radius: 8px; background: rgba(255, 255, 255, .035); color: var(--ink-2); font-size: 13px; line-height: 1.5; }
+.ann-note { display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; padding: 8px 10px; border-radius: 8px; background: var(--tint); color: var(--ink-2); font-size: 13px; line-height: 1.5; }
 .ann-note .ic { margin-top: 2px; color: var(--ink-3); }
 .ann-where { margin-top: 9px; font-size: 12px; color: var(--ink-3); }
 .ann .kebab { width: 30px; height: 30px; opacity: .55; }
@@ -425,9 +458,9 @@ body.reading .shell { display: none; }
 .theme { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 0; border: 0; background: none; color: var(--ink-3); font-size: 11.5px; }
 .theme-swatch {
   position: relative; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center;
-  font: 600 13px var(--font-serif); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14); transition: box-shadow .15s;
+  font: 600 13px var(--font-serif); box-shadow: inset 0 0 0 1px var(--line-strong); transition: box-shadow .15s;
 }
-.theme:hover .theme-swatch { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14), 0 0 0 2px var(--line-strong); }
+.theme:hover .theme-swatch { box-shadow: inset 0 0 0 1px var(--line-strong), 0 0 0 2px var(--line-strong); }
 .theme.on .theme-swatch { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
 .theme.on .theme-name { color: var(--ink); }
 .theme-check { position: absolute; right: -4px; bottom: -4px; width: 15px; height: 15px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: #fff; box-shadow: 0 0 0 2px var(--surface); }
@@ -500,7 +533,7 @@ body.reading .shell { display: none; }
 .note-quote {
   margin: 0 0 14px; padding: 10px 14px; max-height: 150px; overflow-y: auto;
   border-left: 3px solid var(--hl, var(--accent)); border-radius: 0 8px 8px 0;
-  background: rgba(255, 255, 255, .035); font: 14.5px/1.55 var(--font-serif); color: var(--ink-2);
+  background: var(--tint); font: 14.5px/1.55 var(--font-serif); color: var(--ink-2);
 }
 .note-input {
   width: 100%; padding: 12px; resize: vertical; min-height: 110px;

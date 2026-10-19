@@ -159,6 +159,13 @@ try {
   await page.evaluate(() => app.go('settings'));
   check('settings page', await waitFor(() => !!document.querySelector('.preview')));
   await shot('13-settings');
+  await page.evaluate(() => document.querySelectorAll('.settings-card .theme')[1].click());
+  check('settings theme restyles the app', await waitFor(() =>
+    document.documentElement.dataset.theme === 'sepia' && app.library.settings.tone === 'sepia' &&
+    getComputedStyle(document.body).backgroundColor === 'rgb(242, 235, 223)'));
+  await sleep(300);
+  await shot('14-sepia-app');
+  await page.evaluate(() => document.querySelectorAll('.settings-card .theme')[3].click());
 
   console.log('Persistence');
   await page.reload({ waitUntil: 'networkidle0' });

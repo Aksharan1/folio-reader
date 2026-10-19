@@ -6,6 +6,7 @@ const PREFS_KEY = 'folio.prefs.v1';
 
 function defaultPrefs() {
   return {
+    uiTheme: 'midnight',   // app colours; a TONES id, set from the Settings page
     view: 'grid',          // grid | list
     sort: 'recent',        // recent | added | title | author | progress
     animate: true,         // page-turn animation
@@ -35,6 +36,7 @@ class Library {
       }
     } catch (e) {}
     if (!TONES[this.settings.tone]) this.settings.tone = defaultSettings().tone;
+    if (!TONES[this.prefs.uiTheme]) this.prefs.uiTheme = defaultPrefs().uiTheme;
   }
 
   savePrefs() {

@@ -832,15 +832,20 @@ class App {
     const s = this.library.settings;
     const out = h('div.appearance');
 
+    /* on the Settings page the theme restyles the whole app; in the reader's Aa panel it
+       only changes the page */
+    const current = full ? this.prefs.uiTheme : s.tone;
     const themes = h('div.themes', { role: 'radiogroup', 'aria-label': 'Theme' });
     for (const id of TONE_ORDER) {
       const t = TONES[id];
-      themes.appendChild(h('button.theme' + (s.tone === id ? '.on' : ''), {
-        type: 'button', role: 'radio', 'aria-checked': s.tone === id ? 'true' : 'false', title: t.name,
-        onclick: () => this.setReading({ tone: id }),
-      }, h('span.theme-swatch', { style: { background: t.bg(s.brightness), color: t.fg } }, 'Aa', s.tone === id ? h('span.theme-check', icon('check', 11)) : null), full ? h('span.theme-name', t.name) : null));
+      themes.appendChild(h('button.theme' + (current === id ? '.on' : ''), {
+        type: 'button', role: 'radio', 'aria-checked': current === id ? 'true' : 'false', title: t.name,
+        onclick: () => full ? this.setAppTheme(id) : this.setReading({ tone: id }),
+      }, h('span.theme-swatch', { style: { background: t.bg(s.brightness), color: t.fg } }, 'Aa', current === id ? h('span.theme-check', icon('check', 11)) : null), full ? h('span.theme-name', t.name) : null));
     }
-    out.appendChild(this.setting('Theme', themes));
+    out.appendChild(full
+      ? this.setting('Theme', themes, 'Changes the whole app and the reading page. While reading, use Aa to change just the page.')
+      : this.setting('Page theme', themes));
 
     const bright = h('input.range', { type: 'range', min: 0, max: 100, step: 1, 'aria-label': 'Page brightness' });
     bright.value = Math.round(s.brightness * 100);
@@ -914,7 +919,7 @@ class App {
       this.setting('Books', h('span', this.library.records.length + ' · ' + fmtSize(total))),
       this.setting('Storage', usage, 'Everything lives in your browser’s IndexedDB. Nothing is uploaded.'),
       this.setting('Sample book', h('button.btn', { type: 'button', onclick: () => this.importSample() }, icon('reading', 16), 'Add Frankenstein'), 'A public-domain classic to try the reader with.'),
-      this.setting('Reset appearance', h('button.btn', { type: 'button', onclick: () => { this.setReading(defaultSettings()); this.toast('Appearance reset', 'check'); } }, 'Reset'), 'Restore the default theme, font and spacing.'),
+      this.setting('Reset appearance', h('button.btn', { type: 'button', onclick: () => { this.prefs.uiTheme = defaultPrefs().uiTheme; this.applyAppTheme(); this.setReading(defaultSettings()); this.toast('Appearance reset', 'check'); } }, 'Reset'), 'Restore the default theme, font and spacing.'),
       this.setting('Remove all books', h('button.btn.btn-danger', {
         type: 'button', disabled: !this.library.records.length,
         onclick: async () => {
@@ -939,6 +944,21 @@ class App {
     } else {
       this.renderLibrary();
     }
+  }
+
+  /* app colours and the reading page together */
+  setAppTheme(id) {
+    this.prefs.uiTheme = id;
+    this.applyAppTheme();
+    this.setReading({ tone: id });
+  }
+
+  applyAppTheme() {
+    const id = this.prefs.uiTheme;
+    if (id === 'midnight') delete document.documentElement.dataset.theme;
+    else document.documentElement.dataset.theme = id;
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.content = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
   }
 
   setPref(key, value, rerender) {
@@ -1564,6 +1584,7 @@ class App {
   /* ---------------- Boot ---------------- */
 
   async boot() {
+    this.applyAppTheme();
     this.buildShell();
     await this.library.init();
     this.reader.settings = Object.assign({}, this.library.settings);
