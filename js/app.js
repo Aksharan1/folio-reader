@@ -15,22 +15,22 @@ const APP_NAME = 'Folio';
 
 const NAV = [
   { id: 'library',     label: 'Library',     icon: 'library' },
-  { id: 'reading',     label: 'Reading Now', icon: 'reading' },
+  { id: 'reading',     label: 'Reading now', icon: 'reading' },
   { id: 'favourites',  label: 'Favourites',  icon: 'heart' },
   { id: 'annotations', label: 'Annotations', icon: 'pen' },
   { id: 'authors',     label: 'Authors',     icon: 'user' },
 ];
 
 const FILTERS = [
-  { id: 'all',      label: 'All Books' },
-  { id: 'reading',  label: 'Currently Reading' },
+  { id: 'all',      label: 'All books' },
+  { id: 'reading',  label: 'Reading' },
   { id: 'unread',   label: 'Unread' },
   { id: 'finished', label: 'Finished' },
 ];
 
 const SORTS = [
-  { id: 'recent',   label: 'Recently Opened' },
-  { id: 'added',    label: 'Recently Added' },
+  { id: 'recent',   label: 'Recently opened' },
+  { id: 'added',    label: 'Recently added' },
   { id: 'title',    label: 'Title' },
   { id: 'author',   label: 'Author' },
   { id: 'progress', label: 'Progress' },
@@ -218,17 +218,37 @@ class App {
     return wrap;
   }
 
+  /* progress drawn as a book's fore-edge: fine page lines, the read ones gilded,
+     with a ribbon where you stopped */
   progressBar(pct) {
-    return h('div.pbar', { role: 'progressbar', 'aria-valuenow': pct, 'aria-valuemin': 0, 'aria-valuemax': 100 },
-      h('i', { style: { width: pct + '%' } }));
+    return h('div.edge' + (pct > 0 && pct < 100 ? '.has-ribbon' : ''), {
+      role: 'progressbar', 'aria-label': pct + '% read', 'aria-valuenow': pct, 'aria-valuemin': 0, 'aria-valuemax': 100,
+      style: { '--p': pct + '%' },
+    }, h('i'));
+  }
+
+  /* short status shown next to a fore-edge */
+  progressText(rec) {
+    const pct = this.library.progressOf(rec);
+    const status = this.library.statusOf(rec);
+    if (status === 'finished') return h('span.ptext.done', 'Finished');
+    if (status === 'unread') return h('span.ptext', 'Not started');
+    return h('span.ptext', pct + '%');
+  }
+
+  /* estimated reading time left: your own pace once there's enough history, else ~220 wpm */
+  timeLeftMs(rec) {
+    const pct = this.library.progressOf(rec);
+    if (pct >= 100) return 0;
+    if ((rec.readMs || 0) > 180000 && pct >= 2) return rec.readMs * (100 - pct) / pct;
+    if (rec.totalChars) return ((rec.totalChars * (100 - pct)) / 100 / DEFAULT_CPM) * 60000;
+    return null;
   }
 
   timeLeft(rec) {
-    const pct = this.library.progressOf(rec);
-    if (pct >= 100) return 'Finished';
-    if ((rec.readMs || 0) > 180000 && pct >= 2) return fmtDuration(rec.readMs * (100 - pct) / pct);
-    if (rec.totalChars) return fmtDuration(((rec.totalChars * (100 - pct)) / 100 / DEFAULT_CPM) * 60000);
-    return '—';
+    const ms = this.timeLeftMs(rec);
+    if (ms === 0) return 'Finished';
+    return ms ? fmtDuration(ms) : '—';
   }
 
   /* =========================================================
@@ -258,7 +278,7 @@ class App {
       iconButton('menu', 'Toggle navigation', () => document.body.classList.toggle('nav-open'), 'nav-toggle'),
       h('label.search-box', icon('search', 16), this.searchInput, h('kbd.search-kbd', '/')),
       h('div.topbar-actions',
-        h('button.btn.btn-primary', { type: 'button', onclick: () => this.fileInput.click() }, icon('plus', 16), h('span', 'Add Books')),
+        h('button.btn.btn-primary', { type: 'button', onclick: () => this.fileInput.click() }, icon('plus', 16), h('span', 'Add books')),
         this.viewToggle = h('div.seg.view-toggle', { role: 'group', 'aria-label': 'Layout' }),
       ),
     );
@@ -317,7 +337,7 @@ class App {
         h('div.mc-meta',
           h('div.mc-label', 'Continue reading'),
           h('div.mc-title', cur.title),
-          h('div.mc-bar', this.progressBar(pct), h('span', pct + '%')),
+          this.progressBar(pct),
         ),
       ));
     }
@@ -393,10 +413,10 @@ class App {
     });
 
     if (!this.library.records.length) {
-      root.appendChild(this.emptyState('library', 'Your library is empty',
-        'Add EPUB files to start reading. Books, progress and highlights stay on this device.',
+      root.appendChild(this.emptyState('library', 'Your shelves are empty',
+        'Add an EPUB to start reading. Your books, progress and highlights stay in this browser.',
         [
-          h('button.btn.btn-primary', { type: 'button', onclick: () => this.fileInput.click() }, icon('plus', 16), 'Add Books'),
+          h('button.btn.btn-primary', { type: 'button', onclick: () => this.fileInput.click() }, icon('plus', 16), 'Add books'),
           h('button.btn', { type: 'button', onclick: () => this.importSample() }, icon('reading', 16), 'Try a sample book'),
         ]));
       root.appendChild(h('p.drop-hint', 'Tip: you can also drag .epub files anywhere onto this window.'));
@@ -464,17 +484,14 @@ class App {
     const grid = h('div.book-grid');
     for (const rec of list) {
       const pct = this.library.progressOf(rec);
-      const status = this.library.statusOf(rec);
       const cover = this.coverEl(rec);
-      if (rec.favourite) cover.appendChild(h('span.badge.badge-fav', { title: 'Favourite' }, icon('heart', 13)));
-      if (status === 'finished') cover.appendChild(h('span.badge.badge-done', { title: 'Finished' }, icon('check', 13)));
-      if (status === 'unread') cover.appendChild(h('span.badge-new', 'New'));
+      if (rec.favourite) cover.appendChild(h('span.badge-fav', { title: 'Favourite' }, icon('heart', 12)));
       const card = h('article.book', { tabindex: '0', 'aria-label': rec.title + (rec.author ? ' by ' + rec.author : '') },
         cover,
         h('div.book-meta',
           h('div.book-title-row', h('h3.book-title', { title: rec.title }, rec.title), this.kebab(rec, true)),
           h('div.book-author', rec.author || 'Unknown author'),
-          h('div.book-progress', this.progressBar(pct), h('span', pct + '%')),
+          h('div.book-progress', this.progressBar(pct), this.progressText(rec)),
         ),
       );
       grid.appendChild(this.activate(card, () => this.openBook(rec)));
@@ -490,7 +507,7 @@ class App {
       const pct = this.library.progressOf(rec);
       const row = h('div.bl-row', { role: 'row', tabindex: '0' },
         h('div.bl-title', this.coverEl(rec), h('div', h('div.bl-t', rec.title, rec.favourite ? icon('heart', 13) : null), h('div.bl-a', rec.author || 'Unknown author'))),
-        h('div.bl-prog', this.progressBar(pct), h('span', pct + '%')),
+        h('div.bl-prog', this.progressBar(pct), this.progressText(rec)),
         h('span.bl-dim.bl-hide', fmtAgo(rec.lastOpened)),
         h('span.bl-dim.bl-hide', fmtAgo(rec.added)),
         h('span.bl-dim.bl-hide', fmtSize(rec.size)),
@@ -505,41 +522,34 @@ class App {
 
   viewReadingNow() {
     const root = h('section.view');
-    root.appendChild(this.pageHead('Reading Now', 'Pick up where you left off'));
+    root.appendChild(this.pageHead('Reading now', 'Pick up where you left off'));
     const cur = this.library.current();
     if (!cur) {
       root.appendChild(this.emptyState('reading', 'Nothing in progress',
         this.library.records.length ? 'Open any book from your library and it will appear here.' : 'Add a book to your library to get started.',
         [h('button.btn.btn-primary', { type: 'button', onclick: () => this.library.records.length ? this.go('library') : this.fileInput.click() },
-          this.library.records.length ? 'Browse library' : 'Add Books')]));
+          this.library.records.length ? 'Browse library' : 'Add books')]));
       return root;
     }
 
     const pct = this.library.progressOf(cur);
-    const hero = h('div.card.hero',
-      h('div.hero-top',
-        this.coverEl(cur),
-        h('div.hero-meta',
-          h('div.eyebrow', cur.chapterLabel || (pct ? 'In progress' : 'Not started')),
-          h('h2.hero-title', cur.title),
-          h('div.hero-author', cur.author || 'Unknown author'),
-          h('div.hero-progress', this.progressBar(pct), h('span', pct + '%')),
-          h('div.hero-actions',
-            h('button.btn.btn-primary.btn-lg', { type: 'button', onclick: () => this.openBook(cur) }, icon('reading', 17), pct ? 'Continue Reading' : 'Start Reading'),
-            iconButton('info', 'Book details', () => this.showDetails(cur), 'icon-btn-outline'),
-          ),
+    const hero = h('div.hero',
+      this.coverEl(cur),
+      h('div.hero-meta',
+        h('h2.hero-title', cur.title),
+        h('div.hero-author', cur.author || 'Unknown author'),
+        h('div.hero-edge', this.progressBar(pct)),
+        h('p.hero-summary', this.summary(cur)),
+        h('div.hero-actions',
+          h('button.btn.btn-primary.btn-lg', { type: 'button', onclick: () => this.openBook(cur) }, pct ? 'Continue reading' : 'Start reading'),
+          h('button.btn.btn-lg.btn-quiet', { type: 'button', onclick: () => this.showDetails(cur) }, 'Details'),
         ),
-      ),
-      h('div.stats',
-        this.stat(pct + '%', 'Complete', 'reading'),
-        this.stat(fmtDuration(cur.readMs || 0), 'Time spent', 'clock'),
-        this.stat(this.timeLeft(cur), 'Time left', 'hourglass'),
       ),
     );
 
     const recent = (cur.annotations || []).slice().sort((a, b) => b.time - a.time).slice(0, 4);
-    const hl = h('div.card',
-      h('div.card-head', h('h3', 'Recent highlights'), recent.length ? h('button.link', { type: 'button', onclick: () => this.go('annotations') }, 'View all') : null),
+    const hl = h('section.rn-section',
+      h('div.section-head', h('h3', 'Recent highlights'), recent.length ? h('button.link', { type: 'button', onclick: () => this.go('annotations') }, 'See all') : null),
       recent.length
         ? h('div.ann-list', recent.map((a) => this.annCard(cur, a, { compact: true })))
         : h('p.muted', 'Select text while reading to highlight it or add a note.'),
@@ -549,28 +559,35 @@ class App {
       .filter((r) => r !== cur && this.library.statusOf(r) === 'reading')
       .sort((a, b) => (b.lastOpened || 0) - (a.lastOpened || 0));
     const unread = this.library.query({ filter: 'unread', sort: 'added' }).slice(0, 6);
-    const side = h('div.card',
-      h('div.card-head', h('h3', others.length ? 'Also reading' : 'Up next')),
-      h('div.up-list', (others.length ? others : unread).slice(0, 6).map((r) => {
-        const p = this.library.progressOf(r);
-        return this.activate(h('div.up-item', { tabindex: '0' },
-          this.coverEl(r),
-          h('div.up-meta',
-            h('div.up-title', r.title),
-            h('div.up-author', r.author || 'Unknown author'),
-            h('div.up-prog', this.progressBar(p), h('span', r.lastOpened ? fmtAgo(r.lastOpened) : 'New')),
-          ),
-        ), () => this.openBook(r));
-      })),
-      (others.length ? others : unread).length ? null : h('p.muted', 'No other books yet.'),
+    const list = (others.length ? others : unread).slice(0, 6);
+    const side = h('section.rn-section.rn-side',
+      h('div.section-head', h('h3', others.length ? 'Also reading' : 'Up next')),
+      list.length
+        ? h('div.up-list', list.map((r) => this.activate(h('div.up-item', { tabindex: '0' },
+            this.coverEl(r),
+            h('div.up-meta',
+              h('div.up-title', r.title),
+              h('div.up-author', r.author || 'Unknown author'),
+              h('div.up-prog', this.progressBar(this.library.progressOf(r)), this.progressText(r)),
+            ),
+          ), () => this.openBook(r))))
+        : h('p.muted', 'Books you add will wait here.'),
     );
 
     root.appendChild(h('div.rn-grid', h('div.rn-main', hero, hl), side));
     return root;
   }
 
-  stat(value, label, ic) {
-    return h('div.stat', h('div.stat-ic', icon(ic, 16)), h('div', h('div.stat-v', value), h('div.stat-l', label)));
+  /* one or two plain sentences about where you are in a book */
+  summary(rec) {
+    const pct = this.library.progressOf(rec);
+    const status = this.library.statusOf(rec);
+    if (status === 'unread') return 'You haven’t started this one yet.';
+    if (status === 'finished') return 'You finished this book' + ((rec.readMs || 0) > 60000 ? ' in ' + fmtDurationLong(rec.readMs) + ' of reading.' : '.');
+    const where = rec.chapterLabel ? `You’re at ${rec.chapterLabel}, ${pct}% of the way through.` : `You’re ${pct}% of the way through.`;
+    const left = this.timeLeftMs(rec);
+    const pace = (rec.readMs || 0) > 180000 ? ' at your pace' : '';
+    return where + (left ? ` About ${fmtDurationLong(left)} left${pace}.` : '');
   }
 
   /* ---------------- Annotations ---------------- */
@@ -630,7 +647,8 @@ class App {
   annCard(rec, a, opts) {
     const o = opts || {};
     const col = (HL_COLORS[a.color] || HL_COLORS.yellow).solid;
-    const where = [a.chapter || (this.reader.record === rec && this.reader.book ? this.reader.chapterName(a.spineIndex) : null), a.pct ? a.pct + '%' : null, fmtAgo(a.time)].filter(Boolean).join(' · ');
+    const chapter = a.chapter || (this.reader.record === rec && this.reader.book ? this.reader.chapterName(a.spineIndex) : null);
+    const where = h('div.ann-where', chapter ? h('span', chapter) : null, h('span.ann-when', fmtAgo(a.time)));
     const more = h('button.icon-btn.kebab', {
       type: 'button', 'aria-label': 'Annotation options', 'aria-haspopup': 'menu',
       onclick: (e) => {
@@ -653,8 +671,8 @@ class App {
     const card = h('div.ann' + (o.compact ? '.ann-compact' : ''), { tabindex: '0', style: { '--hl': col } },
       h('div.ann-body',
         h('blockquote.ann-quote', a.quote),
-        a.note ? h('div.ann-note', icon('note', 14), h('span', a.note)) : null,
-        h('div.ann-where', where),
+        a.note ? h('div.ann-note', a.note) : null,
+        where,
       ),
       more,
     );
@@ -673,7 +691,7 @@ class App {
       h('div.bm-ic', icon('bookmark', 16)),
       h('div.ann-body',
         h('div.bm-label', b.label || 'Bookmark'),
-        h('div.ann-where', [b.pct !== undefined ? b.pct + '%' : null, fmtAgo(b.time)].filter(Boolean).join(' · ')),
+        h('div.ann-where', b.pct !== undefined ? h('span', b.pct + '% through') : null, h('span.ann-when', fmtAgo(b.time))),
       ),
       more,
     );
@@ -752,9 +770,8 @@ class App {
     }
     const grid = h('div.author-grid');
     for (const a of authors) {
-      const hue = hashStr(a.name) % 360;
       const card = h('div.author', { tabindex: '0' },
-        h('div.avatar', { style: { background: `linear-gradient(140deg, hsl(${hue} 55% 46%), hsl(${(hue + 40) % 360} 55% 30%))` } }, initials(a.name)),
+        h('div.monogram', { style: { '--cloth': clothFor(a.name) } }, initials(a.name)),
         h('div.author-meta', h('div.author-name', a.name), h('div.author-count', a.books.length + (a.books.length === 1 ? ' book' : ' books'))),
         h('div.author-covers', a.books.slice(0, 3).map((r) => this.coverEl(r))),
       );
@@ -770,7 +787,7 @@ class App {
     const root = h('section.view');
     root.appendChild(this.pageHead('Settings', 'Applies to every book'));
     const tabs = h('div.tabs', { role: 'tablist' });
-    for (const [id, label] of [['appearance', 'Appearance'], ['reading', 'Reading'], ['shortcuts', 'Shortcuts'], ['data', 'Library & Data']]) {
+    for (const [id, label] of [['appearance', 'Appearance'], ['reading', 'Reading'], ['shortcuts', 'Shortcuts'], ['data', 'Library and data']]) {
       tabs.appendChild(h('button.tab' + (this.settingsTab === id ? '.on' : ''), {
         type: 'button', role: 'tab', 'aria-selected': this.settingsTab === id ? 'true' : 'false',
         onclick: () => { this.settingsTab = id; this.renderLibrary(); },
@@ -781,7 +798,7 @@ class App {
     if (this.settingsTab === 'appearance') {
       root.appendChild(h('div.settings-grid',
         h('div.card.settings-card', this.appearanceControls(true)),
-        h('div.preview-wrap', h('div.eyebrow', 'Preview'), this.previewEl()),
+        h('div.preview-wrap', this.previewEl()),
       ));
     } else if (this.settingsTab === 'reading') {
       root.appendChild(h('div.card.settings-card.narrow',
@@ -911,7 +928,7 @@ class App {
     } else usage.textContent = 'Unavailable';
     const total = this.library.records.reduce((n, r) => n + (r.size || 0), 0);
     return h('div.card.settings-card.narrow',
-      this.setting('Books', h('span', this.library.records.length + ' · ' + fmtSize(total))),
+      this.setting('Books', h('span', this.library.records.length + (this.library.records.length === 1 ? ' book, ' : ' books, ') + fmtSize(total))),
       this.setting('Storage', usage, 'Everything lives in your browser’s IndexedDB. Nothing is uploaded.'),
       this.setting('Sample book', h('button.btn', { type: 'button', onclick: () => this.importSample() }, icon('reading', 16), 'Add Frankenstein'), 'A public-domain classic to try the reader with.'),
       this.setting('Reset appearance', h('button.btn', { type: 'button', onclick: () => { this.setReading(defaultSettings()); this.toast('Appearance reset', 'check'); } }, 'Reset'), 'Restore the default theme, font and spacing.'),

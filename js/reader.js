@@ -6,7 +6,7 @@ const TONES = {
   light:    { name: 'Paper',    bg: b => `hsl(48, 10%, ${88 + b * 12}%)`, fg: '#1f1f1f', link: '#2b5b8a', light: true },
   sepia:    { name: 'Sepia',    bg: b => `hsl(38, 28%, ${82 + b * 14}%)`, fg: '#3b3226', link: '#7a5c3e', light: true },
   dark:     { name: 'Dusk',     bg: b => `hsl(30, 8%,  ${12 + b * 14}%)`, fg: '#cfc8bc', link: '#9fbcd8' },
-  midnight: { name: 'Midnight', bg: b => `hsl(228, 26%, ${8 + b * 8}%)`,  fg: '#d4d7e3', link: '#a3a9ff' },
+  midnight: { name: 'Midnight', bg: b => `hsl(249, 33%, ${8 + b * 8}%)`,  fg: '#e4dccb', link: '#d8b46a' },
   charcoal: { name: 'Black',    bg: b => `hsl(30, 6%,  ${2 + b * 9}%)`,   fg: '#b7b0a4', link: '#8ea8c4' },
 };
 const TONE_ORDER = ['light', 'sepia', 'dark', 'midnight', 'charcoal'];
@@ -23,6 +23,7 @@ const HL_ORDER = ['yellow', 'green', 'blue', 'pink', 'purple'];
 
 const FONTS = [
   { id: 'publisher',   name: 'Original',          css: null },
+  { id: 'literata',    name: 'Literata',          css: "'Literata',Georgia,serif" },
   { id: 'avenir',      name: 'Avenir',            css: "'Avenir','Avenir Next','Century Gothic','Futura',sans-serif" },
   { id: 'baskerville', name: 'Baskerville',       css: "'Baskerville','Baskerville Old Face',Palatino,Georgia,serif" },
   { id: 'cochin',      name: 'Cochin',            css: "'Cochin','Palatino Linotype',Palatino,Georgia,serif" },
@@ -54,7 +55,17 @@ const ALIGNS = [
 ];
 
 function defaultSettings() {
-  return { tone: 'midnight', brightness: 0.5, font: 'georgia', fontSize: 100, margin: 1, lines: 1, align: 'original' };
+  return { tone: 'midnight', brightness: 0.5, font: 'literata', fontSize: 100, margin: 1, lines: 1, align: 'original' };
+}
+
+/* the bundled Literata, made available inside the page frames */
+function literataFaces() {
+  const url = (f) => new URL('fonts/' + f, document.baseURI).href;
+  const latin = 'U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+20AC,U+2122,U+2212,U+FEFF,U+FFFD';
+  const ext = 'U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF';
+  return [['normal', 'latin', latin], ['italic', 'latin', latin], ['normal', 'latin-ext', ext], ['italic', 'latin-ext', ext]]
+    .map(([style, set, range]) => `@font-face{font-family:'Literata';font-style:${style};font-weight:200 900;font-display:swap;src:url('${url('literata-' + set + '-opsz-' + style + '.woff2')}') format('woff2');unicode-range:${range};}`)
+    .join('');
 }
 
 class Reader {
@@ -173,10 +184,10 @@ class Reader {
       dbg: (typeof window !== 'undefined' && window.__erDebug) ? 1 : 0,
     };
     /* tint search hits on the page they land on */
-    if (query) data.highlights.push({ q: query, c: HL_COLORS.purple.fill });
+    if (query) data.highlights.push({ q: query, c: 'rgba(216,180,106,.42)' });
 
     /* theme colours win over the book's own stylesheet */
-    const css = `
+    const css = `${font.id === 'literata' ? literataFaces() : ''}
 html{background:${bg} !important;zoom:${s.fontSize / 100};}
 body{background:${bg} !important;color:${fg} !important;max-width:${m.width};margin:0 auto;padding:${m.vert}px min(${m.side}px, 6vw);}
 body *{color:inherit !important;}
@@ -187,7 +198,7 @@ ${famDecl}
 ${alignDecl}
 body,p,li,dd,dt,blockquote,pre{line-height:${ls} !important;}
 mark.erhl{color:inherit;border-radius:2px;}
-::selection{background:rgba(124,108,246,.38);}
+::selection{background:rgba(216,180,106,.38);}
 `;
 
     const js = `
