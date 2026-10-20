@@ -5,7 +5,8 @@
 
 const plainText = (html) => new DOMParser().parseFromString(html || '', 'text/html').body.textContent.replace(/\s+/g, ' ').trim();
 
-/* resolves to { title, senses: [{ pos, defs }] } or { title, text }, each with source and url;
+/* resolves to { title, senses: [{ pos, defs }], form? } or { title, text }, each with source and url
+   (form notes an inflection that was followed to its base word, "forebodings: plural of foreboding");
    null when nothing was found. Throws when offline. */
 async function lookUpWord(text, lang = 'en', depth = 0) {
   const word = text.replace(/\s+/g, ' ').trim().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
@@ -24,7 +25,7 @@ async function lookUpWord(text, lang = 'en', depth = 0) {
     const base = senses[0].defs[0].match(/^(?:[\w-]+ )*(?:plural|form|participle|past|tense|singular|comparative|superlative|spelling) of ([\p{L}'-]+)\.?$/iu);
     if (base && depth < 1 && base[1].toLowerCase() !== w.toLowerCase()) {
       const more = await lookUpWord(base[1], lang, depth + 1).catch(() => null);
-      if (more && more.senses) return { ...more, senses: [senses[0], ...more.senses].slice(0, 3) };
+      if (more && more.senses) return { ...more, form: w + ': ' + senses[0].defs[0] };
     }
     return { title: w, senses, source: 'Wiktionary', url: 'https://en.wiktionary.org/wiki/' + slug(w) };
   }

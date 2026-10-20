@@ -1,0 +1,34 @@
+name: Bug report
+description: Something doesn't work, or a book doesn't open or look right
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: input
+    id: book
+    attributes:
+      label: Book format and source
+      description: For problems with a particular book, e.g. "AZW3 from Project Gutenberg". Please don't attach books you can't share.
+  - type: input
+    id: version
+    attributes:
+      label: Folio version
+      description: Settings → Library & Data → About Folio
+      placeholder: "1.1.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: build
+    attributes:
+      label: Installed or portable?
+      options: [Installed, Portable, Running from source]
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      placeholder: Windows 11 24H2

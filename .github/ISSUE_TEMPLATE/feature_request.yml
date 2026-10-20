@@ -1,0 +1,20 @@
+name: Feature idea
+description: Suggest something Folio should do
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would you like to do?
+      description: Describe the reading situation, not just the feature. What gets in your way today?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How could Folio help?
+  - type: textarea
+    id: elsewhere
+    attributes:
+      label: Seen it elsewhere?
+      description: Other readers that do this well, if any.

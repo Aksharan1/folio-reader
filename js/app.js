@@ -89,12 +89,15 @@ class App {
      Shared UI: toast, menus, popovers, modals
      ========================================================= */
 
+  /* where floating UI goes: inside the reader while reading, so it takes the page's theme */
+  layer() {
+    return this.screen === 'read' && this.readScreen ? this.readScreen : document.body;
+  }
+
   toast(msg, ic, sticky) {
     let t = document.querySelector('.toast');
-    if (!t) {
-      t = h('div.toast', { role: 'status', 'aria-live': 'polite' });
-      document.body.appendChild(t);
-    }
+    if (!t) t = h('div.toast', { role: 'status', 'aria-live': 'polite' });
+    if (t.parentNode !== this.layer()) this.layer().appendChild(t);
     t.innerHTML = '';
     if (ic === 'spin') t.appendChild(h('span.spinner'));
     else if (ic) t.appendChild(icon(ic, 16));
@@ -120,7 +123,7 @@ class App {
         it.hint ? h('kbd', it.hint) : null,
       ));
     }
-    document.body.appendChild(m);
+    this.layer().appendChild(m);
     this.place(m, anchor, align);
     this.menuEl = m;
     this.menuAnchor = anchor;
@@ -166,7 +169,7 @@ class App {
       foot,
     );
     const back = h('div.modal-backdrop', { onmousedown: (e) => { if (e.target === back) close(); } }, modal);
-    document.body.appendChild(back);
+    this.layer().appendChild(back);
     requestAnimationFrame(() => back.classList.add('on'));
     this.modalEl = back;
     this.modalOnClose = onClose;
@@ -414,7 +417,7 @@ class App {
           h('button.btn.btn-primary', { type: 'button', onclick: () => this.fileInput.click() }, icon('plus', 16), 'Add Books'),
           h('button.btn', { type: 'button', onclick: () => this.importSample() }, icon('reading', 16), 'Try a sample book'),
         ]));
-      root.appendChild(h('p.drop-hint', 'Tip: you can also drag books anywhere onto this window.'));
+      root.appendChild(h('p.drop-hint', 'Tip: you can also drag books or whole folders onto this window.'));
       return root;
     }
     if (!list.length) {
@@ -1311,6 +1314,7 @@ class App {
     const t = TONES[s.tone] || TONES.midnight;
     this.readScreen.style.setProperty('--rd-bg', t.bg(s.brightness));
     this.readScreen.style.setProperty('--rd-fg', t.fg);
+    this.readScreen.style.setProperty('--lift', t.lift(s.brightness).toFixed(2));
     this.readScreen.classList.toggle('tone-light', !!t.light);
     this.readScreen.dataset.tone = TONES[s.tone] ? s.tone : 'midnight';
   }
@@ -1419,6 +1423,7 @@ class App {
       body.appendChild(h('p.pop-status', found ? found.error : 'No definition found for “' + text.slice(0, 40) + '”.'));
     } else {
       title.textContent = found.title;
+      if (found.form) body.appendChild(h('div.pop-form', found.form));
       if (found.senses) body.append(...found.senses.map((s) => h('div.pop-sense', s.pos ? h('div.pop-pos', s.pos) : null, h('ol', s.defs.map((d) => h('li', d))))));
       else body.appendChild(h('p', found.text));
       if (found.url) pop.appendChild(h('button.pop-link', { type: 'button', onclick: () => window.open(found.url) }, 'More on ' + found.source));

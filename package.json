@@ -1,23 +1,33 @@
 {
   "name": "folio-reader",
   "productName": "Folio",
-  "version": "1.0.0",
-  "description": "A fast, private e-book reader for Windows.",
+  "version": "1.1.0",
+  "description": "A fast, private e-book reader for Windows. EPUB, Kindle, PDF, FB2, Word, Markdown and text.",
   "author": "Aksharan",
+  "homepage": "https://github.com/Aksharan1/folio-reader#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Aksharan1/folio-reader.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Aksharan1/folio-reader/issues"
+  },
   "main": "electron/main.js",
   "private": true,
   "license": "MIT",
   "keywords": [
-    "epub",
     "ebook",
+    "ebook-reader",
+    "epub",
     "mobi",
     "azw3",
     "fb2",
     "pdf",
     "reader",
-    "epubjs",
-    "indexeddb",
-    "offline"
+    "electron",
+    "windows",
+    "offline",
+    "privacy"
   ],
   "scripts": {
     "start": "electron .",
@@ -37,7 +47,7 @@
     "puppeteer": "^25.12.0"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22.13"
   },
   "build": {
     "appId": "com.aksharan.folio",

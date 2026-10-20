@@ -101,6 +101,33 @@ await page.keyboard.press('KeyB');
 await sleep(2800);
 await shot('reader');
 
+// look up a word on the first page of Letter 1 (a real Wiktionary request)
+await page.evaluate(() => app.reader.renderSection(3, 0).then(() => app.refreshProgress()));
+await ready();
+await page.evaluate(() => {
+  const doc = app.reader.doc();
+  const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
+  let n;
+  while ((n = walker.nextNode()) && !n.nodeValue.includes('forebodings'));
+  const at = n.nodeValue.indexOf('forebodings');
+  const range = doc.createRange();
+  range.setStart(n, at);
+  range.setEnd(n, at + 'forebodings'.length);
+  doc.getSelection().removeAllRanges();
+  doc.getSelection().addRange(range);
+  doc.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+});
+await page.waitForSelector('.sel-bar');
+await page.evaluate(() => [...document.querySelectorAll('.sel-bar .sel-btn')].find((b) => b.textContent === 'Look up').click());
+try {
+  await page.waitForSelector('.pop-card .pop-sense', { timeout: 15000 });
+  await shot('look-up');
+} catch {
+  console.warn('look-up screenshot skipped: no answer from Wiktionary');
+}
+await page.keyboard.press('Escape');
+await page.evaluate(() => app.reader.doc().getSelection().removeAllRanges());
+
 await page.evaluate(() => app.setReading({ tone: 'sepia' }));
 await ready();
 await page.keyboard.press('KeyS');

@@ -2,32 +2,57 @@
    Folio — design tokens, library shell, reader, panels
    ========================================================= */
 
+/* shared, theme-independent tokens */
 :root {
-  --base-bg:          #0b0d14;
-  --base-surface:     #11141d;
-  --base-surface-2:   #171b26;
-  --base-surface-3:   #1f2432;
-  --base-elev:        #1a1e2b;
-  --base-line:        #232838;
-  --base-line-strong: #2f3548;
-  --ink:         #e9ebf3;
-  --ink-2:       #a4aabd;
-  --ink-3:       #6c7287;
-  --danger:      #f2667a;
-  --shadow-lg:   0 18px 50px rgba(0, 0, 0, .45), 0 2px 8px rgba(0, 0, 0, .3);
   --radius:      12px;
   --font-ui:     "Inter", "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
   --font-serif:  Georgia, "Iowan Old Style", "Palatino Linotype", Palatino, serif;
   --font-mono:   ui-monospace, "Cascadia Code", "SF Mono", Consolas, monospace;
-  --track:       rgba(255, 255, 255, .08);
-  --tint:        rgba(255, 255, 255, .04);
-  --knob:        #cfd3df;
+}
+
+/* Theme colours. The app takes them from the theme picked in Settings (data-theme on the root);
+   the reader applies them again for its page theme (data-tone), which can differ, so its panels
+   and menus match the page. Midnight is the default. */
+:root, .screen-read[data-tone="midnight"] {
+  --base-bg: #0b0d14; --base-surface: #11141d; --base-surface-2: #171b26; --base-surface-3: #1f2432; --base-elev: #1a1e2b;
+  --base-line: #232838; --base-line-strong: #2f3548;
+  --ink: #e9ebf3; --ink-2: #a4aabd; --ink-3: #6c7287;
+}
+:root, .screen-read[data-tone="midnight"], .screen-read[data-tone="dark"], .screen-read[data-tone="charcoal"] {
+  --danger: #f2667a;
+  --shadow-lg: 0 18px 50px rgba(0, 0, 0, .45), 0 2px 8px rgba(0, 0, 0, .3);
+  --track: rgba(255, 255, 255, .08); --tint: rgba(255, 255, 255, .04); --knob: #cfd3df;
   color-scheme: dark;
+}
+:root[data-theme="charcoal"], .screen-read[data-tone="charcoal"] {
+  --base-bg: #0a0a0a; --base-surface: #121212; --base-surface-2: #1a1a1a; --base-surface-3: #252525; --base-elev: #1c1c1c;
+  --base-line: #262626; --base-line-strong: #353535;
+  --ink: #ececec; --ink-2: #a8a8a8; --ink-3: #6e6e6e;
+}
+:root[data-theme="dark"], .screen-read[data-tone="dark"] {
+  --base-bg: #1a1715; --base-surface: #221e1b; --base-surface-2: #2a2522; --base-surface-3: #352f2a; --base-elev: #2c2724;
+  --base-line: #36302b; --base-line-strong: #463e37;
+  --ink: #ede6dc; --ink-2: #b3a99c; --ink-3: #82786c;
+}
+:root[data-theme="light"], :root[data-theme="sepia"], .screen-read[data-tone="light"], .screen-read[data-tone="sepia"] {
+  --danger: #d4384f;
+  --shadow-lg: 0 14px 40px rgba(40, 32, 20, .14), 0 2px 6px rgba(40, 32, 20, .08);
+  --track: rgba(0, 0, 0, .09); --tint: rgba(0, 0, 0, .035); --knob: #ffffff;
+  color-scheme: light;
+}
+:root[data-theme="light"], .screen-read[data-tone="light"] {
+  --base-bg: #f6f6f3; --base-surface: #ffffff; --base-surface-2: #f0f0ec; --base-surface-3: #e6e6e1; --base-elev: #ffffff;
+  --base-line: #e2e2dd; --base-line-strong: #d0d0ca;
+  --ink: #1d1d1f; --ink-2: #55565c; --ink-3: #8a8b91;
+}
+:root[data-theme="sepia"], .screen-read[data-tone="sepia"] {
+  --base-bg: #eadabb; --base-surface: #f2e5cb; --base-surface-2: #e5d2b0; --base-surface-3: #dac39d; --base-elev: #f5ead4;
+  --base-line: #dbc5a0; --base-line-strong: #c9ae86;
+  --ink: #3d2e1c; --ink-2: #66513a; --ink-3: #8a7153;
 }
 
 /* accents, one set per theme: --accent fills buttons and bars (with --on-accent text on top),
-   --accent-2 is the accent as text or an icon on the theme's background.
-   The reader re-applies them for its page theme, which can differ from the app theme. */
+   --accent-2 is the accent as text or an icon on the theme's background */
 :root, .screen-read[data-tone="midnight"] {
   --accent: #6c63ff; --accent-2: #8f88ff; --accent-hover: #7b73ff; --on-accent: #fff;
   --accent-soft: rgba(108, 99, 255, .15); --accent-line: rgba(108, 99, 255, .45); --accent-glow: rgba(108, 99, 255, .28);
@@ -49,36 +74,9 @@
   --accent-soft: rgba(236, 231, 223, .1); --accent-line: rgba(236, 231, 223, .35); --accent-glow: rgba(0, 0, 0, .4);
 }
 
-/* app themes, picked on the Settings page (they also set the reading page) */
-:root[data-theme="charcoal"] {
-  --base-bg: #0a0a0a; --base-surface: #121212; --base-surface-2: #1a1a1a; --base-surface-3: #252525; --base-elev: #1c1c1c;
-  --base-line: #262626; --base-line-strong: #353535;
-  --ink: #ececec; --ink-2: #a8a8a8; --ink-3: #6e6e6e;
-}
-:root[data-theme="dark"] {
-  --base-bg: #1a1715; --base-surface: #221e1b; --base-surface-2: #2a2522; --base-surface-3: #352f2a; --base-elev: #2c2724;
-  --base-line: #36302b; --base-line-strong: #463e37;
-  --ink: #ede6dc; --ink-2: #b3a99c; --ink-3: #82786c;
-}
-:root[data-theme="light"], :root[data-theme="sepia"] {
-  --danger: #d4384f;
-  --shadow-lg: 0 14px 40px rgba(40, 32, 20, .14), 0 2px 6px rgba(40, 32, 20, .08);
-  --track: rgba(0, 0, 0, .09); --tint: rgba(0, 0, 0, .035); --knob: #ffffff;
-  color-scheme: light;
-}
-:root[data-theme="light"] {
-  --base-bg: #f6f6f3; --base-surface: #ffffff; --base-surface-2: #f0f0ec; --base-surface-3: #e6e6e1; --base-elev: #ffffff;
-  --base-line: #e2e2dd; --base-line-strong: #d0d0ca;
-  --ink: #1d1d1f; --ink-2: #55565c; --ink-3: #8a8b91;
-}
-:root[data-theme="sepia"] {
-  --base-bg: #eadabb; --base-surface: #f2e5cb; --base-surface-2: #e5d2b0; --base-surface-3: #dac39d; --base-elev: #f5ead4;
-  --base-line: #dbc5a0; --base-line-strong: #c9ae86;
-  --ink: #3d2e1c; --ink-2: #66513a; --ink-3: #8a7153;
-}
-
-/* surfaces: the theme's colours, lifted or dimmed by the brightness slider (--lift, set from js, in lightness points) */
-:root {
+/* surfaces: the theme's colours, lifted or dimmed by the brightness slider
+   (--lift, in lightness points, set from js on the root and on the reader) */
+:root, .screen-read {
   --lift: 0;
   --bg: hsl(from var(--base-bg) h s calc(l + var(--lift)));
   --surface: hsl(from var(--base-surface) h s calc(l + var(--lift)));
@@ -781,6 +779,7 @@ body.reading .toast { bottom: 72px; }
 .pop-status { display: flex; align-items: center; gap: 10px; color: var(--ink-2); }
 .pop-sense + .pop-sense { margin-top: 8px; }
 .pop-pos { color: var(--ink-3); font-size: 12px; font-style: italic; }
+.pop-form { margin: -4px 0 8px; color: var(--ink-2); font-size: 13px; }
 .pop-sense ol { margin: 2px 0 0; padding-left: 20px; }
 .pop-sense li + li { margin-top: 3px; }
 .pop-link {

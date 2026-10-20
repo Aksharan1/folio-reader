@@ -1,57 +1,69 @@
+<div align="center">
+
 # Folio
 
 **A fast, private e-book reader for Windows.**
-No accounts, no uploads. Your books, progress and highlights stay on your device.
 
-![Folio library](docs/screenshots/library.png)
+EPUB, Kindle, PDF, FB2, Word, Markdown and text. No account, no cloud, no tracking.
+
+[![CI](https://github.com/Aksharan1/folio-reader/actions/workflows/ci.yml/badge.svg)](https://github.com/Aksharan1/folio-reader/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/Aksharan1/folio-reader?label=download)](https://github.com/Aksharan1/folio-reader/releases/latest)
+[![MIT licence](https://img.shields.io/badge/licence-MIT-blue)](LICENSE)
+![Windows 10 and 11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4)
+
+![A book open in Folio's two-page view](docs/screenshots/reader.png)
+
+</div>
+
+## Download
+
+Get the latest version from the **[Releases page](https://github.com/Aksharan1/folio-reader/releases/latest)**:
+
+- **`Folio-Setup-<version>.exe`** installs Folio, adds it to the Start menu and lets you open EPUB, Kindle and FB2 files with a double-click.
+- **`Folio-Portable-<version>.exe`** runs without installing. It keeps its library in a `Folio Data` folder next to the .exe, so it can live on a USB stick.
+
+The builds aren't code-signed yet, so Windows SmartScreen may warn the first time you run one: choose **More info → Run anyway**.
 
 ## Features
 
-- **Reads most e-book formats**: EPUB, Kindle (MOBI, AZW, AZW3), PDF, FB2, Word (DOCX), HTML, Markdown and plain text. See [Supported formats](#supported-formats).
-- **Library**: grid and list layouts, filters (reading, unread, finished), sorting, instant search, favourites, and a browsable author index. Books without cover art get a generated cover. Add books one at a time or a whole folder (subfolders included).
-- **Distraction-free reader**: paginated pages that break between lines, so no line appears twice. Two pages side by side when the window is wide, like an open book (can be switched off). A page-turn animation, click or keyboard navigation, and a progress scrubber.
-- **Appearance**: five themes (Paper, Sepia, Dusk, Midnight, Black), brightness, 11 fonts, text size, line spacing, margins and alignment, with a live preview.
-- **Highlights & notes**: select text to highlight it in one of five colours, attach notes, and copy passages. Everything is collected per book and across your library, and can be exported as Markdown.
-- **Kindle highlights**: import your Kindle's `My Clippings.txt` to bring its highlights and notes over to the same books in Folio.
-- **Bookmarks**: one keypress saves the page you're on.
-- **Full-text search**: finds every match in the book with context, and takes you to the exact occurrence.
-- **Reading Now**: pick up where you left off, with time spent and an estimate of the time left.
-- **Works offline**: your library is stored on your computer. Nothing is uploaded.
+**Reading**
+- Pages break between lines, so no line is ever cut in half or shown twice.
+- Two pages side by side on wide windows, like an open book.
+- Five themes (Paper, Sepia, Dusk, Midnight, Black) with a brightness control, 11 fonts, and adjustable text size, line spacing, margins and alignment.
+- **Read aloud** with the voices built into Windows. It follows along, turning pages and moving through chapters.
+- **Look up** any word for a definition from Wiktionary, or a Wikipedia summary for names and places.
+- Footnotes open in a popup next to the text. Links inside a book work, and web links open in your browser.
+- Full-text search in the book, a contents panel, a progress scrubber, and an estimate of the time left.
+
+**Notes**
+- Highlights in five colours, notes on any passage, and bookmarks, collected per book and across your library.
+- Export highlights and notes as Markdown, for one book or all of them.
+- Bring over your Kindle highlights by importing `My Clippings.txt`.
+
+**Library**
+- Add books one at a time, a whole folder, or by dragging them onto the window.
+- Grid and list views, filters, sorting, favourites, an author index, and a Reading Now page.
+- Back up the whole library (books, progress, highlights and bookmarks) to a single file and restore it on another PC.
+
+**Private**
+- Everything stays on your computer. There's no account, telemetry or sync server.
+- Folio only goes online when you look up a word.
+- A book can't run scripts or load anything from the internet.
 
 <table>
   <tr>
-    <td><img src="docs/screenshots/reader.png" alt="Reader"></td>
-    <td><img src="docs/screenshots/appearance.png" alt="Appearance settings"></td>
+    <td><img src="docs/screenshots/library.png" alt="The library"></td>
+    <td><img src="docs/screenshots/look-up.png" alt="Looking up a word"></td>
   </tr>
   <tr>
-    <td><img src="docs/screenshots/search.png" alt="Search in book"></td>
+    <td><img src="docs/screenshots/appearance.png" alt="Appearance settings on a sepia page"></td>
+    <td><img src="docs/screenshots/search.png" alt="Searching inside a book"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/annotations.png" alt="Highlights and notes across the library"></td>
     <td><img src="docs/screenshots/reading-now.png" alt="Reading Now"></td>
   </tr>
-  <tr>
-    <td><img src="docs/screenshots/annotations.png" alt="Annotations"></td>
-    <td><img src="docs/screenshots/settings.png" alt="Settings"></td>
-  </tr>
 </table>
-
-## Install
-
-Folio is a Windows desktop app built with [Electron](https://www.electronjs.org/). Build the installer from source with Node.js 18+:
-
-```bash
-git clone https://github.com/Aksharan1/folio-reader.git
-cd folio-reader
-npm install
-npm start            # run the app from source
-npm run dist         # build the installer: dist/Folio-Setup-<version>.exe
-```
-
-The installer adds Folio to the Start menu, and registers it for EPUB, Kindle and FB2 files, so double-clicking a book (or **Open with → Folio**) opens it straight into the reader. **Ctrl O** adds books, **Ctrl Shift O** adds a folder, **F11** toggles full screen, and **Alt** shows the menu bar. Window size and position are remembered between launches. Your library is stored in `%APPDATA%\Folio`.
-
-`npm run dist` also builds `dist/Folio-Portable-<version>.exe`, which runs without installing and keeps its library in a `Folio Data` folder next to the .exe, so you can carry it on a USB stick. It starts a little slower than the installed app because it unpacks itself on each launch.
-
-The installer isn't code-signed, so Windows SmartScreen may warn the first time you run it: choose **More info → Run anyway**.
-
-Add books with **Add Books**, or drag them onto the window.
 
 ## Supported formats
 
@@ -72,64 +84,93 @@ Folio's reader works with EPUB. Other formats are converted to EPUB on your comp
 
 | Reading | | Library | |
 | --- | --- | --- | --- |
-| `→` `Space` `PgDn` | Next page | `/` or `Ctrl F` | Search library |
-| `←` `PgUp` | Previous page | `Esc` | Clear search |
-| `Home` / `End` | Beginning / end of book | | |
-| `T` | Contents | | |
-| `F` or `Ctrl F` | Search in book | | |
-| `A` | Annotations | | |
+| `→` `Space` `PgDn` | Next page | `Ctrl O` | Add books |
+| `←` `PgUp` | Previous page | `Ctrl Shift O` | Add a folder |
+| `Home` / `End` | Beginning / end of book | `/` or `Ctrl F` | Search library |
+| `T` | Contents | `Esc` | Clear search |
+| `F` or `Ctrl F` | Search in book | `F11` | Full screen |
+| `A` | Annotations | `Alt` | Show the menu bar |
 | `S` | Appearance | | |
+| `R` | Read aloud | | |
 | `B` | Toggle bookmark | | |
 | `H` | Highlight selected text | | |
 | `I` | Book details | | |
 | `+` / `-` | Text size | | |
-| `Esc` | Close panel | | |
+| `Esc` | Close panel, stop reading aloud | | |
 
-## Project structure
+## Where your data lives
 
-```
-index.html            entry point
-app.css               design tokens, layout and components
-js/
-  dom.js              tiny DOM helper, icon set, generated covers, formatters
-  convert.js          converts MOBI/AZW3, PDF, FB2, DOCX, HTML, Markdown and text to EPUB
-  reader.js           rendering engine: themes, pagination, search, annotations
-  library.js          IndexedDB storage, preferences, library queries
-  clippings.js        imports Kindle highlights from My Clippings.txt
-  app.js              UI: library views, reader chrome, panels, keyboard
-electron/
-  main.js             desktop shell: window, menu, app:// protocol, .epub file opening
-  preload.js          bridge exposing file-open events to the app
-build/icon.png        app icon (npm run icon regenerates it from the favicon)
-vendor/               epub.js, JSZip, pdf.js and foliate-js's MOBI parser (pre-built)
-samples/              a public-domain sample book
-scripts/screenshots.mjs  regenerates the README screenshots
-tests/smoke.mjs       end-to-end test that drives the app
-tests/launch.mjs      starts the app with a throwaway profile for tests and screenshots
-```
+The installed app keeps its library in `%APPDATA%\Folio`. The portable app keeps it in `Folio Data` next to the .exe. To move to another computer, use **Settings → Library & Data → Back up library**, then **Restore a backup** on the new one.
 
-### How the reader works
+## Building from source
 
-Each spine section of the EPUB is rendered by [epub.js](https://github.com/futurepress/epub.js) to HTML and loaded into a sandboxed `<iframe>`, with the theme injected as CSS. Once the section's layout is final, the iframe measures every line box and cuts pages between lines. Turning a page scrolls to the next cut. A strip under the last full line is masked, so a partially visible line is never shown. Progress is measured in characters across the whole book. Highlights are re-applied by matching their text each time a section renders.
-
-## Development
+You need [Node.js](https://nodejs.org/) 22.13 or newer and Windows 10 or 11.
 
 ```bash
-npm install            # Electron, Puppeteer, and the sources for vendor/
-npm test               # end-to-end smoke test (opens the app window while it runs)
-npm run screenshots    # rebuild docs/screenshots
-npm run vendor         # refresh vendor/ from node_modules
+git clone https://github.com/Aksharan1/folio-reader.git
+cd folio-reader
+npm install
+npm start            # run the app from source
+npm test             # end-to-end test: opens the app and drives it for a couple of minutes
+npm run dist         # build dist/Folio-Setup-<version>.exe and dist/Folio-Portable-<version>.exe
+```
+
+If `npm start` reports that Electron failed to install, run `node node_modules/electron/install.js` once.
+
+Other scripts:
+
+```bash
+npm run screenshots  # rebuild docs/screenshots (looks up one word on Wiktionary)
+npm run vendor       # refresh vendor/ from node_modules after updating epub.js, JSZip, pdf.js or foliate-js
+npm run icon         # redraw build/icon.png from the favicon in index.html
 ```
 
 Set `SHOTS=some/folder` when running `npm test` to save a screenshot of every step.
+
+## How it works
+
+Folio is plain HTML, CSS and JavaScript with no framework and no build step, inside a small [Electron](https://www.electronjs.org/) shell.
+
+Each spine section of the EPUB is rendered by [epub.js](https://github.com/futurepress/epub.js) to HTML, and loaded into a sandboxed `<iframe>` with the theme injected as CSS. Once the section's layout is final, the iframe measures every line box and cuts pages between lines. Turning a page scrolls to the next cut. A strip under the last full line is masked, so a partly visible line is never shown. In the two-page view, a second iframe shows the page after the first.
+
+Progress is measured in characters across the whole book. Highlights are stored as the text you selected, and drawn again by finding that text each time a section renders. Books are stored in IndexedDB inside the app's profile.
+
+Each page frame carries a Content-Security-Policy that only lets Folio's own script run, so scripts inside a book are blocked.
+
+```
+index.html            entry point and Content-Security-Policy
+app.css               design tokens, themes, layout and components
+js/
+  dom.js              tiny DOM helper, icon set, generated covers, formatters
+  convert.js          converts MOBI/AZW3, PDF, FB2, DOCX, HTML, Markdown and text to EPUB
+  reader.js           rendering engine: pagination, two-page view, links, search, highlights
+  library.js          IndexedDB storage, preferences, backup and restore
+  clippings.js        imports Kindle highlights from My Clippings.txt
+  speech.js           read aloud
+  lookup.js           Wiktionary and Wikipedia look-ups
+  app.js              UI: library views, reader chrome, panels, keyboard
+electron/
+  main.js             desktop shell: window, menu, app:// protocol, file opening, save dialogs
+  preload.js          the small bridge between the shell and the page
+vendor/               epub.js, JSZip, pdf.js and foliate-js's MOBI parser (pre-built)
+samples/              a public-domain sample book
+build/icon.png        app icon
+scripts/              screenshot, icon and vendor helpers
+tests/                end-to-end test and the launcher it uses
+```
+
+## Contributing
+
+Bug reports, ideas and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md). Folio aims to stay small, so please open an issue to talk about a feature before building it.
 
 ## Credits
 
 - [epub.js](https://github.com/futurepress/epub.js) (BSD-2-Clause) and [JSZip](https://stuk.github.io/jszip/) (MIT) do the EPUB parsing.
 - [pdf.js](https://github.com/mozilla/pdf.js) (Apache-2.0) reads PDFs, and [foliate-js](https://github.com/johnfactotum/foliate-js) (MIT) reads Kindle books.
+- Definitions come from [Wiktionary](https://www.wiktionary.org/), and summaries from [Wikipedia](https://www.wikipedia.org/) (CC BY-SA).
 - The sample book, *Frankenstein* by Mary Wollstonecraft Shelley, comes from [Project Gutenberg](https://www.gutenberg.org/ebooks/84).
-- The other titles in the README screenshots are tiny demo files built by `scripts/screenshots.mjs` from public-domain opening lines.
+- The other titles in the screenshots are tiny demo files built by `scripts/screenshots.mjs` from public-domain opening lines.
 
-## License
+## Licence
 
 [MIT](LICENSE)
