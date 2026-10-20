@@ -2,7 +2,7 @@
   "name": "folio-reader",
   "productName": "Folio",
   "version": "1.0.0",
-  "description": "A fast, private e-book reader for your desktop and browser.",
+  "description": "A fast, private e-book reader for Windows.",
   "author": "Aksharan",
   "main": "electron/main.js",
   "private": true,
@@ -20,8 +20,7 @@
     "offline"
   ],
   "scripts": {
-    "start": "node scripts/serve.mjs",
-    "app": "electron .",
+    "start": "electron .",
     "dist": "electron-builder --win",
     "test": "node tests/smoke.mjs",
     "screenshots": "node scripts/screenshots.mjs",

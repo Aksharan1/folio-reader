@@ -917,7 +917,7 @@ class App {
     const total = this.library.records.reduce((n, r) => n + (r.size || 0), 0);
     return h('div.card.settings-card.narrow',
       this.setting('Books', h('span', this.library.records.length + ' · ' + fmtSize(total))),
-      this.setting('Storage', usage, 'Everything lives in your browser’s IndexedDB. Nothing is uploaded.'),
+      this.setting('Storage', usage, 'Everything is stored on this computer. Nothing is uploaded.'),
       this.setting('Sample book', h('button.btn', { type: 'button', onclick: () => this.importSample() }, icon('reading', 16), 'Add Frankenstein'), 'A public-domain classic to try the reader with.'),
       this.setting('Reset appearance', h('button.btn', { type: 'button', onclick: () => { this.prefs.uiTheme = defaultPrefs().uiTheme; this.applyAppTheme(); this.setReading(defaultSettings()); this.toast('Appearance reset', 'check'); } }, 'Reset'), 'Restore the default theme, font and spacing.'),
       this.setting('Remove all books', h('button.btn.btn-danger', {
@@ -929,7 +929,7 @@ class App {
           this.toast('Library cleared', 'trash');
           this.renderLibrary();
         },
-      }, icon('trash', 16), 'Remove all'), 'Deletes your whole library from this browser.'),
+      }, icon('trash', 16), 'Remove all'), 'Deletes your whole library from this computer.'),
     );
   }
 
@@ -1018,7 +1018,7 @@ class App {
       this.view = 'library';
       this.renderLibrary();
     } catch (e) {
-      this.toast('Couldn’t load the sample — run the app with “npm start” instead of opening the file directly', 'info');
+      this.toast('Couldn’t load the sample book', 'info');
     }
   }
 
@@ -1621,10 +1621,8 @@ class App {
     setInterval(() => this.tickReading(), 15000);
     this.wireDrop();
 
-    if (window.folioDesktop) {
-      window.folioDesktop.onAddBooks(() => this.fileInput.click());
-      window.folioDesktop.onOpenFiles((files) => this.openExternal(files));
-    }
+    window.folioDesktop.onAddBooks(() => this.fileInput.click());
+    window.folioDesktop.onOpenFiles((files) => this.openExternal(files));
   }
 }
 

@@ -127,7 +127,7 @@ class Library {
       });
       if (buf) return new Uint8Array(buf);
     } catch (e) {}
-    throw new Error('this browser could not read the file — try the Add Books button instead of dragging');
+    throw new Error('the file couldn’t be read — try the Add Books button instead of dragging');
   }
 
   /* resolves to { rec, duplicate } */

@@ -1,20 +1,17 @@
 // End-to-end smoke test: `npm test`
-// Boots the app in headless Chrome, imports the sample book and exercises the main flows.
+// Starts the desktop app, imports the sample book and exercises the main flows.
 // Set SHOTS=<dir> to save screenshots of each step.
 import puppeteer from 'puppeteer';
 import JSZip from 'jszip';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { startServer } from '../scripts/serve.mjs';
+import { launchApp } from './launch.mjs';
 
-const PORT = 8123;
 const SHOTS = process.env.SHOTS || '';
 const W = Number(process.env.W) || 1440, H = Number(process.env.H) || 900;
 
-const server = await startServer(PORT);
-const browser = await puppeteer.launch({ headless: true, protocolTimeout: 120000 });
-const page = await browser.newPage();
+const { page, close } = await launchApp();
 await page.setViewport({ width: W, height: H });
 
 const consoleErrors = [];
@@ -42,7 +39,7 @@ const frameReady = () => waitFor(() => {
 
 try {
   console.log('Library');
-  await page.goto(`http://localhost:${PORT}/`, { waitUntil: 'networkidle0' });
+  await page.goto('app://folio/index.html', { waitUntil: 'networkidle0' });
   check('shows empty state', await waitFor(() => document.querySelector('.empty h2')?.textContent.includes('empty')));
   await shot('01-empty');
 
@@ -163,7 +160,7 @@ try {
   await page.evaluate(() => document.querySelectorAll('.settings-card .theme')[1].click());
   check('settings theme restyles the app', await waitFor(() =>
     document.documentElement.dataset.theme === 'sepia' && app.library.settings.tone === 'sepia' &&
-    getComputedStyle(document.body).backgroundColor === 'rgb(242, 235, 223)'));
+    getComputedStyle(document.body).backgroundColor === 'rgb(234, 218, 187)'));
   await sleep(300);
   await shot('14-sepia-app');
   await page.evaluate(() => document.querySelectorAll('.settings-card .theme')[3].click());
@@ -201,7 +198,7 @@ try {
 
   console.log('Other formats');
   // each fixture is converted to EPUB on import; Kindle files need a real book, so they're tested by hand
-  const fixtures = await formatFixtures(browser);
+  const fixtures = await formatFixtures();
   await (await page.$('input.hidden-file')).uploadFile(...fixtures.map((f) => f.path));
   check('all formats import', await waitFor((n) => app.library.records.length === 2 + n, 60000, fixtures.length),
     await page.evaluate(() => app.library.records.length - 2) + ' of ' + fixtures.length);
@@ -228,15 +225,14 @@ try {
   failures++;
   console.error(e);
 } finally {
-  await browser.close();
-  server.close();
+  await close();
 }
 
 console.log(failures ? `\n${failures} check(s) failed` : '\nAll checks passed');
 process.exit(failures ? 1 : 0);
 
 /* Small books in every non-EPUB format the importer converts, written to a temp folder. */
-async function formatFixtures(browser) {
+async function formatFixtures() {
   const dir = join(tmpdir(), 'folio-fixtures');
   mkdirSync(dir, { recursive: true });
   const para = (n) => `Paragraph ${n} carries enough words to wrap across several lines of the page, so the converter has to join them back together into one flowing paragraph of text.`;
@@ -274,12 +270,14 @@ async function formatFixtures(browser) {
   add('report.docx', await docx.generateAsync({ type: 'nodebuffer' }),
     { title: 'Word Document Book', author: 'Wendy Word', format: 'DOCX', toc: ['Chapter One', 'Chapter Two'], phrases: ['Some words', 'Bold run.', 'More words.'] });
 
-  const pg = await browser.newPage();
+  // the PDF is printed by a separate headless Chrome
+  const chrome = await puppeteer.launch({ headless: true });
+  const pg = await chrome.newPage();
   const chapter = (t, n) => `<h1>${t}</h1>${[1, 2, 3].map((i) => `<p>${para(n * 10 + i)}</p>`).join('')}`;
   await pg.setContent(`<html><head><title>Portable Document Book</title><style>body{font:16px serif;width:420px}h1{font-size:30px;break-before:page}</style></head>
     <body>${chapter('Departure', 1)}${chapter('Arrival', 2)}${chapter('Return', 3)}</body></html>`);
   add('document.pdf', await pg.pdf({ format: 'A5', outline: true, tagged: true, displayHeaderFooter: true, headerTemplate: '<span></span>', footerTemplate: '<div style="font-size:9px;width:100%;text-align:center"><span class="pageNumber"></span></div>' }),
     { title: 'Portable Document Book', format: 'PDF', toc: ['Departure', 'Arrival', 'Return'], phrases: [para(11), para(33)], cover: true });
-  await pg.close();
+  await chrome.close();
   return out;
 }

@@ -1,13 +1,11 @@
 // Regenerates the README screenshots in docs/screenshots: `npm run screenshots`
 // Imports the bundled Frankenstein sample plus a few tiny demo EPUBs (public-domain opening
 // lines, no cover art, so the generated covers show), then stages some reading progress.
-import puppeteer from 'puppeteer';
 import JSZip from 'jszip';
 import { mkdirSync } from 'node:fs';
-import { startServer } from './serve.mjs';
+import { launchApp } from '../tests/launch.mjs';
 
 const OUT = 'docs/screenshots';
-const PORT = 8130;
 
 const DEMO = [
   ['Pride and Prejudice', 'Jane Austen', 'It is a truth universally acknowledged, that a single man in possession of a good fortune, must be in want of a wife.'],
@@ -37,9 +35,7 @@ async function demoEpub(title, author, text) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 mkdirSync(OUT, { recursive: true });
-const server = await startServer(PORT);
-const browser = await puppeteer.launch({ headless: true });
-const page = await browser.newPage();
+const { page, close } = await launchApp({ port: 9334 });
 await page.setViewport({ width: 1440, height: 900 });
 page.on('pageerror', (e) => console.error('page error:', e));
 const shot = async (name) => { await sleep(500); await page.screenshot({ path: `${OUT}/${name}.png` }); console.log('saved', name); };
@@ -48,7 +44,7 @@ const ready = () => page.waitForFunction(() => {
   return f && f.contentDocument && f.contentDocument.readyState === 'complete' && !document.querySelector('.screen-read.loading');
 }, { timeout: 30000 });
 
-await page.goto(`http://localhost:${PORT}/`, { waitUntil: 'networkidle0' });
+await page.goto('app://folio/index.html', { waitUntil: 'networkidle0' });
 await page.evaluate(() => app.importSample());
 await page.waitForSelector('.book');
 for (const [title, author, text] of DEMO) {
@@ -136,5 +132,4 @@ await shot('annotations');
 await page.evaluate(() => app.go('settings'));
 await shot('settings');
 
-await browser.close();
-server.close();
+await close();

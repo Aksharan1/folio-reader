@@ -1,5 +1,5 @@
-// Desktop shell: `npm run app` (dev) or `npm run dist` (Windows installer)
-// Serves the app from a private app:// origin so fetch() and IndexedDB behave as they do on a web server.
+// Desktop shell: `npm start` (dev) or `npm run dist` (Windows installer)
+// Serves the app from a private app:// origin so fetch() and IndexedDB work as they would on a website.
 const { app, BrowserWindow, Menu, protocol, net, shell, ipcMain } = require('electron');
 const { readFile, writeFile } = require('node:fs/promises');
 const { existsSync } = require('node:fs');

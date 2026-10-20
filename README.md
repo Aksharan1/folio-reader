@@ -1,7 +1,7 @@
 # Folio
 
-**A fast, private e-book reader for Windows and the browser.**
-No accounts, no uploads, no build step. Your books, progress and highlights stay on your device.
+**A fast, private e-book reader for Windows.**
+No accounts, no uploads. Your books, progress and highlights stay on your device.
 
 ![Folio library](docs/screenshots/library.png)
 
@@ -15,7 +15,7 @@ No accounts, no uploads, no build step. Your books, progress and highlights stay
 - **Bookmarks**: one keypress saves the page you're on.
 - **Full-text search**: finds every match in the book with context, and takes you to the exact occurrence.
 - **Reading Now**: pick up where you left off, with time spent and an estimate of the time left.
-- **Works offline**: all data lives in IndexedDB and `localStorage`. Nothing leaves the browser.
+- **Works offline**: your library is stored on your computer. Nothing is uploaded.
 
 <table>
   <tr>
@@ -32,13 +32,15 @@ No accounts, no uploads, no build step. Your books, progress and highlights stay
   </tr>
 </table>
 
-## Desktop app (Windows)
+## Install
 
-Folio ships as a native Windows app built with [Electron](https://www.electronjs.org/).
+Folio is a Windows desktop app built with [Electron](https://www.electronjs.org/). Build the installer from source with Node.js 18+:
 
 ```bash
+git clone https://github.com/Aksharan1/folio-reader.git
+cd folio-reader
 npm install
-npm run app          # run the desktop app from source
+npm start            # run the app from source
 npm run dist         # build the installer: dist/Folio-Setup-<version>.exe
 ```
 
@@ -46,23 +48,11 @@ The installer adds Folio to the Start menu, and registers it for EPUB, Kindle an
 
 The installer isn't code-signed, so Windows SmartScreen may warn the first time you run it: choose **More info → Run anyway**.
 
-## Running in the browser
-
-Folio is plain HTML, CSS and JavaScript, so there is nothing to compile.
-
-```bash
-git clone <your-repo-url> folio
-cd folio
-npm start            # serves the app at http://localhost:8080
-```
-
-`npm start` only needs Node.js 18+. No `npm install` is required to run the app. You can also open `index.html` directly from disk. Everything works that way except the bundled **Try a sample book** button, because browsers block `fetch` on `file://` pages.
-
 Add books with **Add Books**, or drag them onto the window.
 
 ## Supported formats
 
-Folio's reader works with EPUB. Other formats are converted to EPUB when you add them, in the browser, so search, highlights, bookmarks and progress work the same for every book. The original file isn't kept.
+Folio's reader works with EPUB. Other formats are converted to EPUB on your computer when you add them, so search, highlights, bookmarks and progress work the same for every book. The original file isn't kept.
 
 | Format | Notes |
 | --- | --- |
@@ -109,9 +99,9 @@ electron/
 build/icon.png        app icon (npm run icon regenerates it from the favicon)
 vendor/               epub.js, JSZip, pdf.js and foliate-js's MOBI parser (pre-built)
 samples/              a public-domain sample book
-scripts/serve.mjs     zero-dependency static server (npm start)
 scripts/screenshots.mjs  regenerates the README screenshots
-tests/smoke.mjs       end-to-end test in headless Chrome
+tests/smoke.mjs       end-to-end test that drives the app
+tests/launch.mjs      starts the app with a throwaway profile for tests and screenshots
 ```
 
 ### How the reader works
@@ -121,15 +111,13 @@ Each spine section of the EPUB is rendered by [epub.js](https://github.com/futur
 ## Development
 
 ```bash
-npm install            # dev tools only: Puppeteer, plus epub.js and JSZip sources
-npm test               # end-to-end smoke test in headless Chrome
+npm install            # Electron, Puppeteer, and the sources for vendor/
+npm test               # end-to-end smoke test (opens the app window while it runs)
 npm run screenshots    # rebuild docs/screenshots
 npm run vendor         # refresh vendor/ from node_modules
 ```
 
 Set `SHOTS=some/folder` when running `npm test` to save a screenshot of every step.
-
-Folio has been developed and tested in Chromium-based browsers. It relies on modern CSS (`color-mix()` and container queries), so it needs a current version of Chrome, Edge, Firefox or Safari.
 
 ## Credits
 

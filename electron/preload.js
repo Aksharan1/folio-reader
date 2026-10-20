@@ -1,4 +1,4 @@
-// Bridge between the desktop shell and the web app. Only present when running in Electron.
+// Bridge between the desktop shell and the page.
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('folioDesktop', {
