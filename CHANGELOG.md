@@ -7,12 +7,13 @@
 - Look up a selected word: a definition from Wiktionary, or a Wikipedia summary for names and places.
 - Footnotes open in a popup. Links inside books jump to their target, and web links open in the browser.
 - Two pages side by side on wide windows.
-- Add a whole folder of books (File → Add Folder, or drag a folder onto the window).
+- Add a whole folder of books (Ctrl+Shift+O, Settings → Library & Data, or drag a folder onto the window).
 - Export highlights and notes as Markdown.
 - Import Kindle highlights and notes from `My Clippings.txt`.
 - Back up the whole library to a .zip and restore it.
 - A portable build that keeps its library next to the .exe.
-- An About row in Settings, and a Help menu.
+- The window's title bar takes the theme's colours, with Folio's own top bar in its place.
+- An About row in Settings, with links to the project and to report a problem.
 
 ### Changed
 - The brightness slider applies to the whole app, not just the page.

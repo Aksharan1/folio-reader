@@ -89,7 +89,7 @@ Folio's reader works with EPUB. Other formats are converted to EPUB on your comp
 | `Home` / `End` | Beginning / end of book | `/` or `Ctrl F` | Search library |
 | `T` | Contents | `Esc` | Clear search |
 | `F` or `Ctrl F` | Search in book | `F11` | Full screen |
-| `A` | Annotations | `Alt` | Show the menu bar |
+| `A` | Annotations | `Ctrl +` / `Ctrl -` | Zoom the whole app |
 | `S` | Appearance | | |
 | `R` | Read aloud | | |
 | `B` | Toggle bookmark | | |

@@ -48,7 +48,6 @@ ipcMain.on('renderer-ready', (e) => {
   flush();
 });
 
-const REPO_URL = 'https://github.com/Aksharan1/folio-reader';
 const SAVE_TYPES = { md: 'Markdown', zip: 'Zip archive' };
 
 // Exports (highlights as Markdown, library backups) go through a Save dialog.
@@ -67,6 +66,19 @@ ipcMain.handle('save-file', async (e, name, data) => {
 
 ipcMain.handle('app-info', () => ({ version: app.getVersion() }));
 
+/* The window has no native title bar: Folio's own top bar takes its place, and Windows draws the
+   minimise, maximise and close buttons over it. The page tells us the colours under them. */
+const HEX = /^#[0-9a-f]{6}$/i;
+const TITLE_BAR_HEIGHT = 40;
+let titleColors = { color: '#0b0d14', symbolColor: '#e9ebf3' };
+
+ipcMain.on('title-bar', (e, color, symbolColor) => {
+  if (!win || e.sender !== win.webContents || !HEX.test(color) || !HEX.test(symbolColor)) return;
+  titleColors = { color, symbolColor };
+  win.setTitleBarOverlay({ ...titleColors, height: TITLE_BAR_HEIGHT });
+  win.setBackgroundColor(color);
+});
+
 app.on('second-instance', (e, argv) => {
   if (win) {
     if (win.isMinimized()) win.restore();
@@ -83,19 +95,23 @@ async function loadState() {
 
 function saveState() {
   if (!win || win.isDestroyed()) return;
-  const state = { bounds: win.getNormalBounds(), maximized: win.isMaximized() };
+  // the colours are kept so the next launch opens in the right theme, without a flash
+  const state = { bounds: win.getNormalBounds(), maximized: win.isMaximized(), titleColors };
   writeFile(STATE_FILE, JSON.stringify(state)).catch(() => {});
 }
 
 async function createWindow() {
   const state = await loadState();
+  const saved = state.titleColors;
+  if (saved && HEX.test(saved.color) && HEX.test(saved.symbolColor)) titleColors = saved;
   win = new BrowserWindow({
     ...(state.bounds || { width: 1280, height: 820 }),
     minWidth: 480,
     minHeight: 400,
     title: 'Folio',
-    backgroundColor: '#0b0d14',
-    autoHideMenuBar: true,
+    backgroundColor: titleColors.color,
+    titleBarStyle: 'hidden',
+    titleBarOverlay: { ...titleColors, height: TITLE_BAR_HEIGHT },
     show: false,
     icon: app.isPackaged ? undefined : join(ROOT, 'build', 'icon.png'),
     webPreferences: {
@@ -111,6 +127,10 @@ async function createWindow() {
   win.on('closed', () => { win = null; });
 
   const wc = win.webContents;
+  wc.on('before-input-event', (e, input) => {
+    const run = input.type === 'keyDown' && !input.alt && KEYS[keyName(input)];
+    if (run) { e.preventDefault(); run(); }
+  });
   wc.on('did-start-loading', () => { rendererReady = false; });
   // Links in books open in the default browser; the app itself never navigates away.
   wc.setWindowOpenHandler(({ url }) => {
@@ -126,34 +146,30 @@ async function createWindow() {
   win.loadURL(ORIGIN + '/index.html');
 }
 
-/* ---------- menu ---------- */
+/* ---------- keyboard ---------- */
 
-function buildMenu() {
-  const send = (channel) => () => { if (win) win.webContents.send(channel); };
-  Menu.setApplicationMenu(Menu.buildFromTemplate([
-    { label: 'File', submenu: [
-      { label: 'Add Books…', accelerator: 'CmdOrCtrl+O', click: send('add-books') },
-      { label: 'Add Folder…', accelerator: 'CmdOrCtrl+Shift+O', click: send('add-folder') },
-      { type: 'separator' },
-      { role: 'quit' },
-    ] },
-    { role: 'editMenu' },
-    { label: 'View', submenu: [
-      { role: 'togglefullscreen' },
-      { type: 'separator' },
-      { role: 'resetZoom' },
-      { role: 'zoomIn' },
-      { role: 'zoomOut' },
-      { type: 'separator' },
-      { role: 'reload' },
-      { role: 'toggleDevTools' },
-    ] },
-    { role: 'windowMenu' },
-    { role: 'help', submenu: [
-      { label: 'Folio on GitHub', click: () => shell.openExternal(REPO_URL) },
-      { label: 'Report a Problem…', click: () => shell.openExternal(REPO_URL + '/issues/new/choose') },
-    ] },
-  ]));
+/* With no title bar there's no menu bar either, and Windows only runs menu shortcuts from a menu
+   bar, so the window handles its own. Keys are written as [Ctrl+][Shift+]key. */
+const KEYS = {
+  'Ctrl+O': () => win.webContents.send('add-books'),
+  'Ctrl+Shift+O': () => win.webContents.send('add-folder'),
+  'F11': () => win.setFullScreen(!win.isFullScreen()),
+  'Ctrl+=': () => zoom(0.5),
+  'Ctrl++': () => zoom(0.5),
+  'Ctrl+Shift++': () => zoom(0.5),
+  'Ctrl+-': () => zoom(-0.5),
+  'Ctrl+0': () => win.webContents.setZoomLevel(0),
+  'Ctrl+Shift+I': () => win.webContents.toggleDevTools(),
+  'F12': () => win.webContents.toggleDevTools(),
+};
+
+function zoom(step) {
+  const level = win.webContents.getZoomLevel() + step;
+  win.webContents.setZoomLevel(Math.max(-3, Math.min(4, level)));
+}
+
+function keyName(input) {
+  return (input.control || input.meta ? 'Ctrl+' : '') + (input.shift ? 'Shift+' : '') + (input.key.length === 1 ? input.key.toUpperCase() : input.key);
 }
 
 /* ---------- boot ---------- */
@@ -165,7 +181,7 @@ app.whenReady().then(() => {
     if (host !== 'folio' || !file.startsWith(ROOT + sep)) return new Response('Not found', { status: 404 });
     return net.fetch(pathToFileURL(file).toString());
   });
-  buildMenu();
+  Menu.setApplicationMenu(null);
   createWindow();
   queueFiles(bookArgs(process.argv.slice(1)));
 });

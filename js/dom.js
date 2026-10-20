@@ -131,6 +131,16 @@ function liftSurfaces(el, lift) {
   }
 }
 
+/* any CSS colour as #rrggbb (by painting a pixel), or null if it isn't one */
+function cssHex(color) {
+  const ctx = cssHex.ctx || (cssHex.ctx = document.createElement('canvas').getContext('2d', { willReadFrequently: true }));
+  if (!color || !CSS.supports('color', color.trim())) return null;
+  ctx.clearRect(0, 0, 1, 1);
+  ctx.fillStyle = color.trim();
+  ctx.fillRect(0, 0, 1, 1);
+  return '#' + [...ctx.getImageData(0, 0, 1, 1).data.slice(0, 3)].map((v) => v.toString(16).padStart(2, '0')).join('');
+}
+
 /* ---------- generated covers for books without artwork ---------- */
 
 function hashStr(s) {

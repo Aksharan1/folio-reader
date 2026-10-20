@@ -249,10 +249,16 @@ body.reading .shell { display: none; }
 .mc-bar { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--ink-3); }
 
 .main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+/* The window has no title bar. The top bars drag the window, and leave room on the right for the
+   minimise, maximise and close buttons Windows draws there (env() gives the space beside them). */
+:root { --window-buttons: calc(100vw - env(titlebar-area-width, 100vw)); }
 .topbar {
   display: flex; align-items: center; gap: 14px; flex: none;
-  height: 68px; padding: 0 32px; border-bottom: 1px solid var(--line);
+  height: 68px; padding: 0 calc(32px + var(--window-buttons)) 0 32px; border-bottom: 1px solid var(--line);
+  -webkit-app-region: drag;
 }
+.topbar > *, .brand > * { -webkit-app-region: no-drag; }
+.brand { -webkit-app-region: drag; }
 .nav-toggle { display: none; }
 .search-box {
   display: flex; align-items: center; gap: 10px;
@@ -481,6 +487,7 @@ body.reading .shell { display: none; }
 .set-label { font-size: 14px; font-weight: 500; }
 .set-hint { margin-top: 4px; max-width: 400px; font-size: 12.5px; font-weight: 400; color: var(--ink-3); line-height: 1.5; }
 .set-control { flex: none; display: flex; align-items: center; }
+.set-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .themes { display: flex; gap: 12px; }
 .theme { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 0; border: 0; background: none; color: var(--ink-3); font-size: 11.5px; }
 .theme-swatch {
@@ -608,9 +615,13 @@ body.reading .toast { bottom: 72px; }
 
 .rd-top {
   position: absolute; z-index: 5; top: 0; left: 0; right: 0; height: 56px;
-  display: flex; align-items: center; gap: 16px; padding: 0 12px;
+  display: flex; align-items: center; gap: 16px; padding: 0 calc(12px + var(--window-buttons)) 0 12px;
   border-bottom: 1px solid var(--rd-line); transition: opacity .3s;
+  -webkit-app-region: drag;
 }
+.rd-top button { -webkit-app-region: no-drag; }
+/* anything floating over a top bar takes clicks, rather than dragging the window */
+.menu, .popover, .pop-card, .drawer, .sel-bar, .modal-backdrop, .toast, .drop-overlay { -webkit-app-region: no-drag; }
 .rd-left { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
 .rd-title { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 14px; }
 .rd-book { font-weight: 600; }

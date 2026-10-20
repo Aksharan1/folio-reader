@@ -1002,7 +1002,10 @@ class App {
           this.renderLibrary();
         },
       }, icon('trash', 16), 'Remove all'), 'Deletes your whole library from this computer.'),
-      this.setting('About Folio', h('button.btn', { type: 'button', onclick: () => window.open(REPO_URL) }, 'View on GitHub'), about),
+      this.setting('About Folio', h('div.set-actions',
+        h('button.btn', { type: 'button', onclick: () => window.open(REPO_URL + '/issues/new/choose') }, 'Report a problem'),
+        h('button.btn', { type: 'button', onclick: () => window.open(REPO_URL) }, 'View on GitHub'),
+      ), about),
     );
   }
 
@@ -1065,6 +1068,17 @@ class App {
   applyBrightness(b = this.library.settings.brightness) {
     const t = TONES[this.prefs.uiTheme] || TONES.midnight;
     liftSurfaces(document.documentElement, t.lift(b));
+    this.syncTitleBar();
+  }
+
+  /* Windows draws its minimise, maximise and close buttons over the top bar: give them the
+     colours of whatever is under them, the library or the reader's page */
+  syncTitleBar() {
+    const reading = this.screen === 'read';
+    const cs = getComputedStyle(reading ? this.readScreen : document.documentElement);
+    const bg = cssHex(cs.getPropertyValue(reading ? '--rd-bg' : '--bg'));
+    const ink = cssHex(cs.getPropertyValue(reading ? '--rd-fg' : '--ink-2'));
+    if (bg && ink) window.folioDesktop.setTitleBar(bg, ink);
   }
 
   setPref(key, value, rerender) {
@@ -1242,6 +1256,7 @@ class App {
     this.reader.frame2 = null;
     this.reader.renderedSection = null;
     this.renderLibrary();
+    this.syncTitleBar();
   }
 
   buildReader(rec) {
@@ -1317,6 +1332,7 @@ class App {
     this.readScreen.classList.toggle('tone-light', !!t.light);
     this.readScreen.dataset.tone = TONES[s.tone] ? s.tone : 'midnight';
     liftSurfaces(this.readScreen, t.lift(s.brightness));   // after data-tone, which picks the base colours
+    this.syncTitleBar();
   }
 
   applyReaderPrefs() {
