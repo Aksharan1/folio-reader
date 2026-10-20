@@ -3,13 +3,13 @@
    ========================================================= */
 
 :root {
-  --bg:          #0b0d14;
-  --surface:     #11141d;
-  --surface-2:   #171b26;
-  --surface-3:   #1f2432;
-  --elev:        #1a1e2b;
-  --line:        #232838;
-  --line-strong: #2f3548;
+  --base-bg:          #0b0d14;
+  --base-surface:     #11141d;
+  --base-surface-2:   #171b26;
+  --base-surface-3:   #1f2432;
+  --base-elev:        #1a1e2b;
+  --base-line:        #232838;
+  --base-line-strong: #2f3548;
   --ink:         #e9ebf3;
   --ink-2:       #a4aabd;
   --ink-3:       #6c7287;
@@ -51,13 +51,13 @@
 
 /* app themes, picked on the Settings page (they also set the reading page) */
 :root[data-theme="charcoal"] {
-  --bg: #0a0a0a; --surface: #121212; --surface-2: #1a1a1a; --surface-3: #252525; --elev: #1c1c1c;
-  --line: #262626; --line-strong: #353535;
+  --base-bg: #0a0a0a; --base-surface: #121212; --base-surface-2: #1a1a1a; --base-surface-3: #252525; --base-elev: #1c1c1c;
+  --base-line: #262626; --base-line-strong: #353535;
   --ink: #ececec; --ink-2: #a8a8a8; --ink-3: #6e6e6e;
 }
 :root[data-theme="dark"] {
-  --bg: #1a1715; --surface: #221e1b; --surface-2: #2a2522; --surface-3: #352f2a; --elev: #2c2724;
-  --line: #36302b; --line-strong: #463e37;
+  --base-bg: #1a1715; --base-surface: #221e1b; --base-surface-2: #2a2522; --base-surface-3: #352f2a; --base-elev: #2c2724;
+  --base-line: #36302b; --base-line-strong: #463e37;
   --ink: #ede6dc; --ink-2: #b3a99c; --ink-3: #82786c;
 }
 :root[data-theme="light"], :root[data-theme="sepia"] {
@@ -67,14 +67,26 @@
   color-scheme: light;
 }
 :root[data-theme="light"] {
-  --bg: #f6f6f3; --surface: #ffffff; --surface-2: #f0f0ec; --surface-3: #e6e6e1; --elev: #ffffff;
-  --line: #e2e2dd; --line-strong: #d0d0ca;
+  --base-bg: #f6f6f3; --base-surface: #ffffff; --base-surface-2: #f0f0ec; --base-surface-3: #e6e6e1; --base-elev: #ffffff;
+  --base-line: #e2e2dd; --base-line-strong: #d0d0ca;
   --ink: #1d1d1f; --ink-2: #55565c; --ink-3: #8a8b91;
 }
 :root[data-theme="sepia"] {
-  --bg: #eadabb; --surface: #f2e5cb; --surface-2: #e5d2b0; --surface-3: #dac39d; --elev: #f5ead4;
-  --line: #dbc5a0; --line-strong: #c9ae86;
+  --base-bg: #eadabb; --base-surface: #f2e5cb; --base-surface-2: #e5d2b0; --base-surface-3: #dac39d; --base-elev: #f5ead4;
+  --base-line: #dbc5a0; --base-line-strong: #c9ae86;
   --ink: #3d2e1c; --ink-2: #66513a; --ink-3: #8a7153;
+}
+
+/* surfaces: the theme's colours, lifted or dimmed by the brightness slider (--lift, set from js, in lightness points) */
+:root {
+  --lift: 0;
+  --bg: hsl(from var(--base-bg) h s calc(l + var(--lift)));
+  --surface: hsl(from var(--base-surface) h s calc(l + var(--lift)));
+  --surface-2: hsl(from var(--base-surface-2) h s calc(l + var(--lift)));
+  --surface-3: hsl(from var(--base-surface-3) h s calc(l + var(--lift)));
+  --elev: hsl(from var(--base-elev) h s calc(l + var(--lift)));
+  --line: hsl(from var(--base-line) h s calc(l + var(--lift)));
+  --line-strong: hsl(from var(--base-line-strong) h s calc(l + var(--lift)));
 }
 
 * { box-sizing: border-box; }

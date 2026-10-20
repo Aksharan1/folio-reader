@@ -847,8 +847,9 @@ class App {
       ? this.setting('Theme', themes, 'Changes the whole app and the reading page. While reading, use Aa to change just the page.')
       : this.setting('Page theme', themes));
 
-    const bright = h('input.range', { type: 'range', min: 0, max: 100, step: 1, 'aria-label': 'Page brightness' });
+    const bright = h('input.range', { type: 'range', min: 0, max: 100, step: 1, 'aria-label': 'Brightness' });
     bright.value = Math.round(s.brightness * 100);
+    bright.addEventListener('input', () => this.applyBrightness(bright.value / 100));
     bright.addEventListener('change', () => this.setReading({ brightness: bright.value / 100 }));
     out.appendChild(this.setting('Brightness', bright));
 
@@ -937,6 +938,7 @@ class App {
     this.library.settings = Object.assign({}, this.library.settings, patch);
     this.library.savePrefs();
     this.reader.settings = Object.assign({}, this.library.settings);
+    this.applyBrightness();
     if (this.screen === 'read' && this.reader.book) {
       this.applyTone();
       if (this.popoverEl) this.fillAppearance();
@@ -957,8 +959,13 @@ class App {
     const id = this.prefs.uiTheme;
     if (id === 'midnight') delete document.documentElement.dataset.theme;
     else document.documentElement.dataset.theme = id;
-    const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.content = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+    this.applyBrightness();
+  }
+
+  /* brightness moves the app's surfaces as far as it moves the page */
+  applyBrightness(b = this.library.settings.brightness) {
+    const t = TONES[this.prefs.uiTheme] || TONES.midnight;
+    document.documentElement.style.setProperty('--lift', t.lift(b).toFixed(2));
   }
 
   setPref(key, value, rerender) {

@@ -157,16 +157,33 @@ try {
   await page.evaluate(() => app.go('settings'));
   check('settings page', await waitFor(() => !!document.querySelector('.preview')));
   await shot('13-settings');
+  // app surfaces are relative colours, which compute as color(srgb …), so read them back through a canvas
+  await page.evaluate(() => {
+    window.__bodyRgb = () => {
+      const c = document.createElement('canvas').getContext('2d');
+      c.fillStyle = getComputedStyle(document.body).backgroundColor;
+      c.fillRect(0, 0, 1, 1);
+      return [...c.getImageData(0, 0, 1, 1).data.slice(0, 3)];
+    };
+  });
   await page.evaluate(() => document.querySelectorAll('.settings-card .theme')[1].click());
   check('settings theme restyles the app', await waitFor(() =>
     document.documentElement.dataset.theme === 'sepia' && app.library.settings.tone === 'sepia' &&
-    getComputedStyle(document.body).backgroundColor === 'rgb(234, 218, 187)'));
+    __bodyRgb().join() === '234,218,187'));
   await sleep(300);
   await shot('14-sepia-app');
+  const lightness = (b) => page.evaluate((b) => {
+    app.setReading({ brightness: b });
+    return __bodyRgb().reduce((n, c) => n + c, 0);
+  }, b);
+  const dim = await lightness(0), bright = await lightness(1);
+  await lightness(0.5);
+  check('brightness changes the whole app', dim < 640 && bright > 680, dim + ' → ' + bright);
   await page.evaluate(() => document.querySelectorAll('.settings-card .theme')[3].click());
 
   console.log('Persistence');
   await page.reload({ waitUntil: 'networkidle0' });
+  await waitFor(() => window.app && app.library.records.length > 0);
   const after = await page.evaluate(() => {
     const r = app.library.records[0];
     return { n: app.library.records.length, anns: r.annotations.length, bms: r.bookmarks.length, tone: app.library.settings.tone, pct: r.pct };

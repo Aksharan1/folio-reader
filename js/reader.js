@@ -2,12 +2,17 @@
    Reader engine — epub.js powered, reflowable EPUB rendering
    ========================================================= */
 
+/* page background is hue, saturation and a lightness range [l, l + span] that brightness (0–1) moves through;
+   lift(b) is how far brightness moves the lightness from the middle, which the app's own surfaces follow */
+const tone = (name, [hue, sat, l, span], rest) => ({
+  name, bg: (b) => `hsl(${hue}, ${sat}%, ${l + b * span}%)`, lift: (b) => (b - 0.5) * span, ...rest,
+});
 const TONES = {
-  light:    { name: 'Paper',    bg: b => `hsl(48, 10%, ${88 + b * 12}%)`, fg: '#1f1f1f', link: '#2b5b8a', sel: 'rgba(47,100,163,.25)', light: true },
-  sepia:    { name: 'Sepia',    bg: b => `hsl(39, 56%, ${78 + b * 14}%)`, fg: '#3d2e1c', link: '#7f4421', sel: 'rgba(155,90,47,.25)', light: true },
-  dark:     { name: 'Dusk',     bg: b => `hsl(30, 8%,  ${12 + b * 14}%)`, fg: '#cfc8bc', link: '#9fbcd8', sel: 'rgba(208,138,82,.35)' },
-  midnight: { name: 'Midnight', bg: b => `hsl(228, 26%, ${8 + b * 8}%)`,  fg: '#d4d7e3', link: '#a3a9ff', sel: 'rgba(124,108,246,.38)' },
-  charcoal: { name: 'Black',    bg: b => `hsl(30, 6%,  ${2 + b * 9}%)`,   fg: '#b7b0a4', link: '#8ea8c4', sel: 'rgba(236,231,223,.22)' },
+  light:    tone('Paper',    [48, 10, 88, 12],  { fg: '#1f1f1f', link: '#2b5b8a', sel: 'rgba(47,100,163,.25)', light: true }),
+  sepia:    tone('Sepia',    [39, 56, 78, 14],  { fg: '#3d2e1c', link: '#7f4421', sel: 'rgba(155,90,47,.25)', light: true }),
+  dark:     tone('Dusk',     [30, 8, 12, 14],   { fg: '#cfc8bc', link: '#9fbcd8', sel: 'rgba(208,138,82,.35)' }),
+  midnight: tone('Midnight', [228, 26, 8, 8],   { fg: '#d4d7e3', link: '#a3a9ff', sel: 'rgba(124,108,246,.38)' }),
+  charcoal: tone('Black',    [30, 6, 2, 9],     { fg: '#b7b0a4', link: '#8ea8c4', sel: 'rgba(236,231,223,.22)' }),
 };
 const TONE_ORDER = ['light', 'sepia', 'dark', 'midnight', 'charcoal'];
 
