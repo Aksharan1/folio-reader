@@ -1,6 +1,6 @@
 # Folio
 
-**A fast, private EPUB reader that runs entirely in your browser.**
+**A fast, private EPUB reader for Windows and the browser.**
 No accounts, no uploads, no build step. Your books, progress and highlights stay on your device.
 
 ![Folio library](docs/screenshots/library.png)
@@ -31,7 +31,21 @@ No accounts, no uploads, no build step. Your books, progress and highlights stay
   </tr>
 </table>
 
-## Getting started
+## Desktop app (Windows)
+
+Folio ships as a native Windows app built with [Electron](https://www.electronjs.org/).
+
+```bash
+npm install
+npm run app          # run the desktop app from source
+npm run dist         # build the installer: dist/Folio-Setup-<version>.exe
+```
+
+The installer adds Folio to the Start menu, and registers it for `.epub` files, so double-clicking a book (or **Open with → Folio**) opens it straight into the reader. **Ctrl O** adds books, **F11** toggles full screen, and **Alt** shows the menu bar. Window size and position are remembered between launches. Your library is stored in `%APPDATA%\Folio`.
+
+The installer isn't code-signed, so Windows SmartScreen may warn the first time you run it: choose **More info → Run anyway**.
+
+## Running in the browser
 
 Folio is plain HTML, CSS and JavaScript, so there is nothing to compile.
 
@@ -72,6 +86,10 @@ js/
   reader.js           rendering engine: themes, pagination, search, annotations
   library.js          IndexedDB storage, preferences, library queries
   app.js              UI: library views, reader chrome, panels, keyboard
+electron/
+  main.js             desktop shell: window, menu, app:// protocol, .epub file opening
+  preload.js          bridge exposing file-open events to the app
+build/icon.png        app icon (npm run icon regenerates it from the favicon)
 vendor/               epub.js and JSZip (pre-built, loaded with <script>)
 samples/              a public-domain sample book
 scripts/serve.mjs     zero-dependency static server (npm start)

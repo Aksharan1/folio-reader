@@ -977,11 +977,12 @@ class App {
       if (all.length) this.toast('Only .epub files are supported', 'info');
       return;
     }
-    let added = 0, dupes = 0, failed = 0, last = null;
+    let added = 0, dupes = 0, failed = 0, last = null, latest = null;
     for (let i = 0; i < files.length; i++) {
       this.toast(files.length > 1 ? `Importing ${i + 1} of ${files.length}…` : 'Importing ' + files[i].name.replace(/\.epub$/i, '') + '…', 'spin', true);
       try {
         const res = await this.library.add(files[i]);
+        latest = res.rec;
         if (res.duplicate) dupes++; else { added++; last = res.rec; }
       } catch (e) {
         failed++;
@@ -996,6 +997,14 @@ class App {
     this.toast(parts.join(' · ') || 'Nothing imported', failed && !added ? 'info' : 'check');
     if (added && this.view !== 'library' && this.view !== 'favourites') this.view = 'library';
     this.renderLibrary();
+    return latest;
+  }
+
+  // Desktop app: books opened from Explorer. A single book opens straight into the reader.
+  async openExternal(list) {
+    const files = list.map((f) => new File([f.data], f.name, { type: 'application/epub+zip' }));
+    const rec = await this.importFiles(files);
+    if (rec && files.length === 1) this.openBook(rec);
   }
 
   async importSample() {
@@ -1608,6 +1617,11 @@ class App {
     document.addEventListener('visibilitychange', () => this.tickReading());
     setInterval(() => this.tickReading(), 15000);
     this.wireDrop();
+
+    if (window.folioDesktop) {
+      window.folioDesktop.onAddBooks(() => this.fileInput.click());
+      window.folioDesktop.onOpenFiles((files) => this.openExternal(files));
+    }
   }
 }
 

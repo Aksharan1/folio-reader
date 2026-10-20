@@ -180,7 +180,7 @@ class Reader {
        above any class selector. Inner backgrounds are cleared so the page colour shows through. */
     const R = ':root:not(#er-theme)';
     const css = `
-${R}{background:${bg} !important;zoom:${s.fontSize / 100};}
+${R}{background:${bg} !important;zoom:${s.fontSize / 100};scrollbar-width:none;}
 ${R} body{background:${bg} !important;color:${fg} !important;max-width:${m.width};margin:0 auto;padding:${m.vert}px min(${m.side}px, 6vw);}
 ${R} body *:not(mark){color:inherit !important;background-color:transparent !important;}
 ${R} body a, ${R} body a *{color:${link} !important;}
