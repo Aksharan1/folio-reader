@@ -176,13 +176,16 @@ try {
     __bodyRgb().join() === '234,218,187'));
   await sleep(300);
   await shot('14-sepia-app');
-  const lightness = (b) => page.evaluate((b) => {
-    app.setReading({ brightness: b });
-    return { sum: __bodyRgb().reduce((n, c) => n + c, 0), detail: getComputedStyle(document.body).backgroundColor };
-  }, b);
-  const dim = await lightness(0), bright = await lightness(1);
-  await lightness(0.5);
-  check('brightness changes the whole app', dim.sum < 640 && bright.sum > 680, `${dim.sum} → ${bright.sum} (${dim.detail} | ${bright.detail})`);
+  // set a brightness, then wait for the app's background to settle (on CI it can take a frame)
+  const brightTo = async (b, settled) => {
+    await page.evaluate((b) => app.setReading({ brightness: b }), b);
+    await waitFor(settled, 5000);
+    return page.evaluate(() => __bodyRgb().reduce((n, c) => n + c, 0));
+  };
+  const dim = await brightTo(0, () => __bodyRgb().reduce((n, c) => n + c, 0) < 640);
+  const bright = await brightTo(1, () => __bodyRgb().reduce((n, c) => n + c, 0) > 680);
+  await brightTo(0.5, () => __bodyRgb().reduce((n, c) => n + c, 0) === 639);
+  check('brightness changes the whole app', dim < 640 && bright > 680, dim + ' → ' + bright);
   await page.evaluate(() => document.querySelectorAll('.settings-card .theme')[3].click());
 
   console.log('Persistence');
