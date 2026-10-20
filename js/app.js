@@ -1178,6 +1178,7 @@ class App {
     this.readScreen.style.setProperty('--rd-bg', t.bg(s.brightness));
     this.readScreen.style.setProperty('--rd-fg', t.fg);
     this.readScreen.classList.toggle('tone-light', !!t.light);
+    this.readScreen.dataset.tone = TONES[s.tone] ? s.tone : 'midnight';
   }
 
   applyReaderPrefs() {

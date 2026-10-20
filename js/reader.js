@@ -3,11 +3,11 @@
    ========================================================= */
 
 const TONES = {
-  light:    { name: 'Paper',    bg: b => `hsl(48, 10%, ${88 + b * 12}%)`, fg: '#1f1f1f', link: '#2b5b8a', light: true },
-  sepia:    { name: 'Sepia',    bg: b => `hsl(38, 28%, ${82 + b * 14}%)`, fg: '#3b3226', link: '#7a5c3e', light: true },
-  dark:     { name: 'Dusk',     bg: b => `hsl(30, 8%,  ${12 + b * 14}%)`, fg: '#cfc8bc', link: '#9fbcd8' },
-  midnight: { name: 'Midnight', bg: b => `hsl(228, 26%, ${8 + b * 8}%)`,  fg: '#d4d7e3', link: '#a3a9ff' },
-  charcoal: { name: 'Black',    bg: b => `hsl(30, 6%,  ${2 + b * 9}%)`,   fg: '#b7b0a4', link: '#8ea8c4' },
+  light:    { name: 'Paper',    bg: b => `hsl(48, 10%, ${88 + b * 12}%)`, fg: '#1f1f1f', link: '#2b5b8a', sel: 'rgba(47,100,163,.25)', light: true },
+  sepia:    { name: 'Sepia',    bg: b => `hsl(38, 28%, ${82 + b * 14}%)`, fg: '#3b3226', link: '#7a5c3e', sel: 'rgba(155,90,47,.25)', light: true },
+  dark:     { name: 'Dusk',     bg: b => `hsl(30, 8%,  ${12 + b * 14}%)`, fg: '#cfc8bc', link: '#9fbcd8', sel: 'rgba(208,138,82,.35)' },
+  midnight: { name: 'Midnight', bg: b => `hsl(228, 26%, ${8 + b * 8}%)`,  fg: '#d4d7e3', link: '#a3a9ff', sel: 'rgba(124,108,246,.38)' },
+  charcoal: { name: 'Black',    bg: b => `hsl(30, 6%,  ${2 + b * 9}%)`,   fg: '#b7b0a4', link: '#8ea8c4', sel: 'rgba(236,231,223,.22)' },
 };
 const TONE_ORDER = ['light', 'sepia', 'dark', 'midnight', 'charcoal'];
 
@@ -192,7 +192,7 @@ ${famDecl}
 ${alignDecl}
 body,p,li,dd,dt,blockquote,pre{line-height:${ls} !important;}
 mark.erhl{color:inherit;border-radius:2px;}
-::selection{background:rgba(124,108,246,.38);}
+::selection{background:${tone.sel};}
 `;
 
     const js = `

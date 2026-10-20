@@ -13,11 +13,6 @@
   --ink:         #e9ebf3;
   --ink-2:       #a4aabd;
   --ink-3:       #6c7287;
-  --accent:      #6c63ff;
-  --accent-2:    #8f88ff;
-  --accent-hover:#7b73ff;
-  --accent-soft: rgba(108, 99, 255, .15);
-  --accent-line: rgba(108, 99, 255, .45);
   --danger:      #f2667a;
   --shadow-lg:   0 18px 50px rgba(0, 0, 0, .45), 0 2px 8px rgba(0, 0, 0, .3);
   --radius:      12px;
@@ -28,6 +23,30 @@
   --tint:        rgba(255, 255, 255, .04);
   --knob:        #cfd3df;
   color-scheme: dark;
+}
+
+/* accents, one set per theme: --accent fills buttons and bars (with --on-accent text on top),
+   --accent-2 is the accent as text or an icon on the theme's background.
+   The reader re-applies them for its page theme, which can differ from the app theme. */
+:root, .screen-read[data-tone="midnight"] {
+  --accent: #6c63ff; --accent-2: #8f88ff; --accent-hover: #7b73ff; --on-accent: #fff;
+  --accent-soft: rgba(108, 99, 255, .15); --accent-line: rgba(108, 99, 255, .45); --accent-glow: rgba(108, 99, 255, .28);
+}
+:root[data-theme="light"], .screen-read[data-tone="light"] {
+  --accent: #2f64a3; --accent-2: #275a94; --accent-hover: #3a71b3; --on-accent: #fff;
+  --accent-soft: rgba(47, 100, 163, .1); --accent-line: rgba(47, 100, 163, .4); --accent-glow: rgba(47, 100, 163, .22);
+}
+:root[data-theme="sepia"], .screen-read[data-tone="sepia"] {
+  --accent: #9b5a2f; --accent-2: #8a4f28; --accent-hover: #a9663a; --on-accent: #fff;
+  --accent-soft: rgba(155, 90, 47, .11); --accent-line: rgba(155, 90, 47, .4); --accent-glow: rgba(155, 90, 47, .22);
+}
+:root[data-theme="dark"], .screen-read[data-tone="dark"] {
+  --accent: #d08a52; --accent-2: #e2a571; --accent-hover: #dc9862; --on-accent: #1f160f;
+  --accent-soft: rgba(208, 138, 82, .15); --accent-line: rgba(208, 138, 82, .45); --accent-glow: rgba(208, 138, 82, .2);
+}
+:root[data-theme="charcoal"], .screen-read[data-tone="charcoal"] {
+  --accent: #e4ded3; --accent-2: #ece7df; --accent-hover: #f3efe8; --on-accent: #141414;
+  --accent-soft: rgba(236, 231, 223, .1); --accent-line: rgba(236, 231, 223, .35); --accent-glow: rgba(0, 0, 0, .4);
 }
 
 /* app themes, picked on the Settings page (they also set the reading page) */
@@ -42,8 +61,6 @@
   --ink: #ede6dc; --ink-2: #b3a99c; --ink-3: #82786c;
 }
 :root[data-theme="light"], :root[data-theme="sepia"] {
-  --accent: #5b52e6; --accent-2: #4f46e5; --accent-hover: #6a62ee;
-  --accent-soft: rgba(91, 82, 230, .1); --accent-line: rgba(91, 82, 230, .4);
   --danger: #d4384f;
   --shadow-lg: 0 14px 40px rgba(40, 32, 20, .14), 0 2px 6px rgba(40, 32, 20, .08);
   --track: rgba(0, 0, 0, .09); --tint: rgba(0, 0, 0, .035); --knob: #ffffff;
@@ -98,7 +115,7 @@ h1, h2, h3 { font-weight: 650; }
 }
 .btn:hover:not(:disabled) { background: var(--surface-3); }
 .btn:active:not(:disabled) { transform: translateY(1px); }
-.btn-primary { background: var(--accent); border-color: transparent; color: #fff; box-shadow: 0 4px 14px rgba(108, 99, 255, .28); }
+.btn-primary { background: var(--accent); border-color: transparent; color: var(--on-accent); box-shadow: 0 4px 14px var(--accent-glow); }
 .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
 .btn-danger { color: var(--danger); background: rgba(242, 102, 122, .08); border-color: rgba(242, 102, 122, .3); }
 .btn-danger:hover:not(:disabled) { background: rgba(242, 102, 122, .16); }
@@ -163,7 +180,7 @@ h1, h2, h3 { font-weight: 650; }
   background: var(--knob); transition: transform .2s, background .2s;
 }
 .switch.on { background: var(--accent); border-color: var(--accent); }
-.switch.on i { transform: translateX(18px); background: #fff; }
+.switch.on i { transform: translateX(18px); background: var(--on-accent); }
 
 kbd {
   display: inline-block; min-width: 24px; padding: 2px 7px;
@@ -292,10 +309,10 @@ body.reading .shell { display: none; }
 .badge { position: absolute; z-index: 1; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; }
 .badge-fav { top: 7px; right: 7px; background: rgba(10, 12, 18, .65); color: #ff7a95; backdrop-filter: blur(4px); }
 .badge-fav svg { fill: currentColor; }
-.badge-done { bottom: 7px; right: 7px; background: var(--accent); color: #fff; }
+.badge-done { bottom: 7px; right: 7px; background: var(--accent); color: var(--on-accent); }
 .badge-new {
   position: absolute; z-index: 1; top: 7px; left: 7px; padding: 2px 7px; border-radius: 6px;
-  background: var(--accent); color: #fff; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+  background: var(--accent); color: var(--on-accent); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
 }
 
 /* ---------- grid ---------- */
@@ -358,7 +375,7 @@ body.reading .shell { display: none; }
 
 .rn-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr); gap: 20px; align-items: start; }
 .rn-main { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
-.hero { padding: 24px; background: linear-gradient(160deg, rgba(108, 99, 255, .1), rgba(108, 99, 255, 0) 55%), var(--surface); }
+.hero { padding: 24px; background: linear-gradient(160deg, var(--accent-soft), transparent 55%), var(--surface); }
 .hero-top { display: grid; grid-template-columns: 136px minmax(0, 1fr); gap: 26px; align-items: center; }
 .hero-title { margin: 0; font-size: 25px; letter-spacing: -.015em; line-height: 1.2; }
 .hero-author { margin-top: 4px; color: var(--ink-2); }
@@ -463,7 +480,7 @@ body.reading .shell { display: none; }
 .theme:hover .theme-swatch { box-shadow: inset 0 0 0 1px var(--line-strong), 0 0 0 2px var(--line-strong); }
 .theme.on .theme-swatch { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
 .theme.on .theme-name { color: var(--ink); }
-.theme-check { position: absolute; right: -4px; bottom: -4px; width: 15px; height: 15px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: #fff; box-shadow: 0 0 0 2px var(--surface); }
+.theme-check { position: absolute; right: -4px; bottom: -4px; width: 15px; height: 15px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: var(--on-accent); box-shadow: 0 0 0 2px var(--surface); }
 .preview {
   min-height: 360px; border-radius: 14px; border: 1px solid var(--line);
   box-shadow: 0 20px 40px rgba(0, 0, 0, .3); overflow: hidden;
@@ -559,7 +576,7 @@ body.reading .toast { bottom: 72px; }
   opacity: 0; pointer-events: none; transition: opacity .18s;
 }
 .drop-overlay.on { opacity: 1; }
-.drop-card { padding: 48px 72px; border: 2px dashed var(--accent-line); border-radius: 22px; background: rgba(108, 99, 255, .07); text-align: center; color: var(--accent-2); }
+.drop-card { padding: 48px 72px; border: 2px dashed var(--accent-line); border-radius: 22px; background: var(--accent-soft); text-align: center; color: var(--accent-2); }
 .drop-title { margin-top: 14px; font-size: 18px; font-weight: 600; color: var(--ink); }
 .drop-sub { margin-top: 4px; font-size: 13px; color: var(--ink-3); }
 
