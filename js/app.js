@@ -1064,7 +1064,7 @@ class App {
   /* brightness moves the app's surfaces as far as it moves the page */
   applyBrightness(b = this.library.settings.brightness) {
     const t = TONES[this.prefs.uiTheme] || TONES.midnight;
-    document.documentElement.style.setProperty('--lift', t.lift(b).toFixed(2));
+    liftSurfaces(document.documentElement, t.lift(b));
   }
 
   setPref(key, value, rerender) {
@@ -1314,9 +1314,9 @@ class App {
     const t = TONES[s.tone] || TONES.midnight;
     this.readScreen.style.setProperty('--rd-bg', t.bg(s.brightness));
     this.readScreen.style.setProperty('--rd-fg', t.fg);
-    this.readScreen.style.setProperty('--lift', t.lift(s.brightness).toFixed(2));
     this.readScreen.classList.toggle('tone-light', !!t.light);
     this.readScreen.dataset.tone = TONES[s.tone] ? s.tone : 'midnight';
+    liftSurfaces(this.readScreen, t.lift(s.brightness));   // after data-tone, which picks the base colours
   }
 
   applyReaderPrefs() {

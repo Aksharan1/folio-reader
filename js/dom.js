@@ -103,6 +103,34 @@ function iconButton(name, label, onclick, cls) {
   return h('button.icon-btn' + (cls ? '.' + cls : ''), { type: 'button', 'aria-label': label, title: label, onclick }, icon(name));
 }
 
+/* ---------- theme surfaces ---------- */
+
+const SURFACES = ['bg', 'surface', 'surface-2', 'surface-3', 'elev', 'line', 'line-strong'];
+
+/* #rrggbb to [hue, saturation %, lightness %] */
+function hexToHsl(hex) {
+  const m = /^#([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return null;
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16) / 255);
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2, d = max - min;
+  if (!d) return [0, 0, l * 100];
+  const s = d / (1 - Math.abs(2 * l - 1));
+  const hue = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [(hue * 60 + 360) % 360, s * 100, l * 100];
+}
+
+/* sets el's surface colours to its theme's base colours (from app.css) moved `lift`
+   lightness points lighter or darker, for the brightness slider */
+function liftSurfaces(el, lift) {
+  const cs = getComputedStyle(el);
+  for (const name of SURFACES) {
+    const hsl = hexToHsl(cs.getPropertyValue('--base-' + name));
+    if (!hsl) continue;
+    const l = Math.max(0, Math.min(100, hsl[2] + lift));
+    el.style.setProperty('--' + name, `hsl(${hsl[0].toFixed(1)} ${hsl[1].toFixed(1)}% ${l.toFixed(1)}%)`);
+  }
+}
+
 /* ---------- generated covers for books without artwork ---------- */
 
 function hashStr(s) {

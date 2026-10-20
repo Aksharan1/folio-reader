@@ -74,17 +74,16 @@
   --accent-soft: rgba(236, 231, 223, .1); --accent-line: rgba(236, 231, 223, .35); --accent-glow: rgba(0, 0, 0, .4);
 }
 
-/* surfaces: the theme's colours, lifted or dimmed by the brightness slider
-   (--lift, in lightness points, set from js on the root and on the reader) */
+/* surfaces: the theme's colours. The brightness slider replaces these with lighter or darker
+   versions, set from js (liftSurfaces) on the root and on the reader */
 :root, .screen-read {
-  --lift: 0;
-  --bg: hsl(from var(--base-bg) h s calc(l + var(--lift)));
-  --surface: hsl(from var(--base-surface) h s calc(l + var(--lift)));
-  --surface-2: hsl(from var(--base-surface-2) h s calc(l + var(--lift)));
-  --surface-3: hsl(from var(--base-surface-3) h s calc(l + var(--lift)));
-  --elev: hsl(from var(--base-elev) h s calc(l + var(--lift)));
-  --line: hsl(from var(--base-line) h s calc(l + var(--lift)));
-  --line-strong: hsl(from var(--base-line-strong) h s calc(l + var(--lift)));
+  --bg: var(--base-bg);
+  --surface: var(--base-surface);
+  --surface-2: var(--base-surface-2);
+  --surface-3: var(--base-surface-3);
+  --elev: var(--base-elev);
+  --line: var(--base-line);
+  --line-strong: var(--base-line-strong);
 }
 
 * { box-sizing: border-box; }

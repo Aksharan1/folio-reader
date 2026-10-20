@@ -178,8 +178,7 @@ try {
   await shot('14-sepia-app');
   const lightness = (b) => page.evaluate((b) => {
     app.setReading({ brightness: b });
-    const lift = document.documentElement.style.getPropertyValue('--lift');
-    return { sum: __bodyRgb().reduce((n, c) => n + c, 0), detail: `${getComputedStyle(document.body).backgroundColor} lift ${lift}` };
+    return { sum: __bodyRgb().reduce((n, c) => n + c, 0), detail: getComputedStyle(document.body).backgroundColor };
   }, b);
   const dim = await lightness(0), bright = await lightness(1);
   await lightness(0.5);
