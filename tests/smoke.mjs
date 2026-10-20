@@ -178,11 +178,12 @@ try {
   await shot('14-sepia-app');
   const lightness = (b) => page.evaluate((b) => {
     app.setReading({ brightness: b });
-    return __bodyRgb().reduce((n, c) => n + c, 0);
+    const lift = document.documentElement.style.getPropertyValue('--lift');
+    return { sum: __bodyRgb().reduce((n, c) => n + c, 0), detail: `${getComputedStyle(document.body).backgroundColor} lift ${lift}` };
   }, b);
   const dim = await lightness(0), bright = await lightness(1);
   await lightness(0.5);
-  check('brightness changes the whole app', dim < 640 && bright > 680, dim + ' → ' + bright);
+  check('brightness changes the whole app', dim.sum < 640 && bright.sum > 680, `${dim.sum} → ${bright.sum} (${dim.detail} | ${bright.detail})`);
   await page.evaluate(() => document.querySelectorAll('.settings-card .theme')[3].click());
 
   console.log('Persistence');
