@@ -245,6 +245,71 @@ try {
   check('and back again', JSON.stringify(s2) === JSON.stringify(s0), JSON.stringify(s2));
   await page.evaluate(() => { app.setPref('twoPages', false); app.closeBook(); });
 
+  console.log('Links, footnotes and scripts');
+  const lz = new JSZip();
+  const xh = (title, body) => `<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><head><title>${title}</title></head><body>${body}</body></html>`;
+  const filler = Array.from({ length: 40 }, (_, i) => `<p>Filler paragraph ${i} that pushes the target further down the chapter so it starts on a later page.</p>`).join('');
+  lz.file('mimetype', 'application/epub+zip', { compression: 'STORE' });
+  lz.file('META-INF/container.xml', '<?xml version="1.0"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>');
+  lz.file('OEBPS/content.opf', '<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="id"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="id">linked</dc:identifier><dc:title>Linked Book</dc:title><dc:creator>Test</dc:creator><dc:language>en</dc:language></metadata><manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/><item id="c1" href="text/c1.xhtml" media-type="application/xhtml+xml"/><item id="c2" href="text/c2.xhtml" media-type="application/xhtml+xml"/><item id="n" href="text/notes.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="c1"/><itemref idref="c2"/><itemref idref="n"/></spine></package>');
+  lz.file('OEBPS/nav.xhtml', xh('Contents', '<nav epub:type="toc"><ol><li><a href="text/c1.xhtml">One</a></li><li><a href="text/c2.xhtml">Two</a></li></ol></nav>'));
+  lz.file('OEBPS/text/c1.xhtml', xh('One', '<h1>One</h1><p>A claim that needs a source<a epub:type="noteref" href="notes.xhtml#n1" id="r1">1</a>, and <a href="c2.xhtml#target" id="jump">a link to the next chapter</a>.</p><script>parent.__pwned = true;</script>'));
+  lz.file('OEBPS/text/c2.xhtml', xh('Two', `<h1>Two</h1>${filler}<p id="target">The paragraph the link points at.</p>${filler}`));
+  lz.file('OEBPS/text/notes.xhtml', xh('Notes', '<aside epub:type="footnote" id="n1"><p><a href="c1.xhtml#r1">1.</a> The footnote, shown in a popup.</p></aside>'));
+  await page.evaluate(async (d) => {
+    const { rec } = await app.library.addBytes('linked.epub', Uint8Array.from(atob(d), (c) => c.charCodeAt(0)));
+    await app.openBook(rec);
+  }, await lz.generateAsync({ type: 'base64' }));
+  await frameReady();
+  check('book scripts are blocked', await page.evaluate(() => !window.__pwned && !app.reader.doc().querySelector('script:not(#er-js):not(#er-data)')));
+  await page.evaluate(() => app.reader.doc().getElementById('r1').click());
+  check('footnote opens in a popup', await waitFor(() => /The footnote, shown in a popup/.test(document.querySelector('.pop-card')?.textContent || '')));
+  await shot('16-footnote');
+  await page.evaluate(() => app.reader.doc().getElementById('jump').click());
+  check('links jump to their target', await waitFor(() => {
+    const doc = app.reader.doc();
+    const el = app.reader.spineIndex === 1 && doc && doc.getElementById('target');
+    if (!el || doc.scrollingElement.scrollTop === 0) return false;
+    const r = el.getBoundingClientRect();
+    return r.top >= -4 && r.bottom <= doc.defaultView.innerHeight;
+  }));
+  check('popup closes on the jump', await page.evaluate(() => !document.querySelector('.pop-card')));
+
+  console.log('Look up and read aloud');
+  // the network and the speech engine are stubbed: tests stay offline and silent
+  await page.evaluate(() => {
+    window.__realFetch = window.fetch;
+    window.fetch = async (url) => /wiktionary/.test(url)
+      ? new Response(JSON.stringify({ en: [{ partOfSpeech: 'Noun', definitions: [{ definition: 'A <b>section</b> of a book.' }] }] }), { status: 200 })
+      : window.__realFetch(url);
+    window.__spoken = [];
+    speechSynthesis.speak = (u) => { window.__spoken.push(u.text); setTimeout(() => u.onend && u.onend(), 40); };
+    speechSynthesis.cancel = () => {};
+    const doc = app.reader.doc();
+    const p = doc.getElementById('target');
+    const range = doc.createRange();
+    range.setStart(p.firstChild, 4);
+    range.setEnd(p.firstChild, 13);
+    doc.getSelection().removeAllRanges();
+    doc.getSelection().addRange(range);
+    doc.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, clientX: 300, clientY: 200 }));
+  });
+  await waitFor(() => !!document.querySelector('.sel-bar'));
+  await page.evaluate(() => [...document.querySelectorAll('.sel-bar .sel-btn')].find((b) => b.textContent === 'Look up').click());
+  check('look up shows a definition', await waitFor(() => /Noun/.test(document.querySelector('.pop-card')?.textContent || '') && /A section of a book\./.test(document.querySelector('.pop-card').textContent)));
+  await shot('17-look-up');
+  await page.keyboard.press('Escape');
+
+  await page.keyboard.press('KeyR');
+  check('read aloud starts on the page', await waitFor(() => document.querySelector('.rd-tts').classList.contains('on') && !!app.reader.doc().querySelector('.er-speaking') && window.__spoken.length > 0));
+  const firstSpoken = await page.evaluate(() => window.__spoken[0]);
+  check('it reads from the page on screen', /^The paragraph the link points at|^Filler paragraph/.test(firstSpoken), firstSpoken.slice(0, 40));
+  const startPage = await page.evaluate(() => app.reader.pageIndex().pi);
+  check('pages turn as it reads', await waitFor((p) => app.reader.pageIndex().pi > p || app.reader.spineIndex > 1, 20000, startPage));
+  await page.keyboard.press('KeyR');
+  check('read aloud stops', await waitFor(() => !document.querySelector('.rd-tts').classList.contains('on') && !app.reader.doc().querySelector('.er-speaking')));
+  await page.evaluate(() => { window.fetch = window.__realFetch; app.closeBook(); });
+
   console.log('Kindle highlights');
   const clipDir = join(tmpdir(), 'folio-clippings');
   mkdirSync(clipDir, { recursive: true });
@@ -274,8 +339,8 @@ try {
   // They're added as a folder, the way "Add a folder" does it.
   const fixtures = await formatFixtures();
   await (await page.$$('input.hidden-file'))[1].uploadFile(join(tmpdir(), 'folio-fixtures'));
-  check('all formats import', await waitFor((n) => app.library.records.length === 2 + n, 60000, fixtures.length),
-    await page.evaluate(() => app.library.records.length - 2) + ' of ' + fixtures.length);
+  check('all formats import', await waitFor((n) => app.library.records.length === 3 + n, 60000, fixtures.length),
+    await page.evaluate(() => app.library.records.length - 3) + ' of ' + fixtures.length);
   for (const f of fixtures) {
     const got = await page.evaluate(async (title) => {
       const rec = app.library.records.find((r) => r.title === title);
@@ -292,6 +357,19 @@ try {
   await page.click('.rd-left .icon-btn');
   await page.evaluate(() => app.importFiles([new File(['not a pdf'], 'broken.pdf')]));
   check('unreadable file reports an error', await waitFor(() => /couldn’t be read/.test(document.querySelector('.toast')?.textContent || '')));
+
+  console.log('Backup');
+  const saved = await page.evaluate(async () => {
+    const before = app.library.records.map((r) => ({ title: r.title, anns: (r.annotations || []).length, pct: r.pct }));
+    const bytes = await app.library.backup();
+    for (const r of app.library.records.slice()) app.library.remove(r.id);
+    const res = await app.library.restore(bytes);
+    const after = app.library.records.map((r) => ({ title: r.title, anns: (r.annotations || []).length, pct: r.pct }));
+    const key = (l) => JSON.stringify(l.slice().sort((a, b) => a.title.localeCompare(b.title)));
+    return { same: key(before) === key(after), res, n: after.length, again: await app.library.restore(bytes) };
+  });
+  check('backup restores every book with its notes', saved.same && saved.res.added === saved.n, JSON.stringify(saved.res) + ' of ' + saved.n);
+  check('restoring twice adds nothing', saved.again.added === 0 && saved.again.updated === saved.n, JSON.stringify(saved.again));
 
   const appErrors = await page.evaluate(() => window.__errors);
   check('no runtime errors', !appErrors.length && !consoleErrors.length, [...appErrors, ...consoleErrors].join(' | ') || 'none');

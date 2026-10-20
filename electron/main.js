@@ -48,18 +48,24 @@ ipcMain.on('renderer-ready', (e) => {
   flush();
 });
 
-// Exports (highlights as Markdown) go through a Save dialog; resolves to the saved path, or null.
-ipcMain.handle('save-file', async (e, name, text) => {
+const REPO_URL = 'https://github.com/Aksharan1/folio-reader';
+const SAVE_TYPES = { md: 'Markdown', zip: 'Zip archive' };
+
+// Exports (highlights as Markdown, library backups) go through a Save dialog.
+// data is text or bytes; resolves to the saved path, or null if cancelled.
+ipcMain.handle('save-file', async (e, name, data) => {
   if (!win || e.sender !== win.webContents) return null;
-  const ext = (name.match(/\.(\w+)$/) || [])[1] || 'txt';
+  const ext = (String(name).match(/\.(\w+)$/) || [])[1] || 'txt';
   const res = await dialog.showSaveDialog(win, {
-    defaultPath: join(app.getPath('documents'), basename(name)),
-    filters: [{ name: ext === 'md' ? 'Markdown' : 'Text', extensions: [ext] }],
+    defaultPath: join(app.getPath('documents'), basename(String(name))),
+    filters: [{ name: SAVE_TYPES[ext] || 'Text', extensions: [ext] }],
   });
   if (res.canceled || !res.filePath) return null;
-  await writeFile(res.filePath, String(text));
+  await writeFile(res.filePath, data instanceof Uint8Array ? data : String(data));
   return res.filePath;
 });
+
+ipcMain.handle('app-info', () => ({ version: app.getVersion() }));
 
 app.on('second-instance', (e, argv) => {
   if (win) {
@@ -143,6 +149,10 @@ function buildMenu() {
       { role: 'toggleDevTools' },
     ] },
     { role: 'windowMenu' },
+    { role: 'help', submenu: [
+      { label: 'Folio on GitHub', click: () => shell.openExternal(REPO_URL) },
+      { label: 'Report a Problem…', click: () => shell.openExternal(REPO_URL + '/issues/new/choose') },
+    ] },
   ]));
 }
 

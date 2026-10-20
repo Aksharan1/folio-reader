@@ -12,6 +12,7 @@ window.addEventListener('unhandledrejection', (e) => {
 });
 
 const APP_NAME = 'Folio';
+const REPO_URL = 'https://github.com/Aksharan1/folio-reader';
 
 const NAV = [
   { id: 'library',     label: 'Library',     icon: 'library' },
@@ -46,6 +47,7 @@ const SHORTCUTS = [
     [['A'], 'Annotations'],
     [['S'], 'Appearance'],
     [['B'], 'Toggle bookmark'],
+    [['R'], 'Read aloud'],
     [['H'], 'Highlight selected text'],
     [['I'], 'Book details'],
     [['+', '−'], 'Text size'],
@@ -78,6 +80,7 @@ class App {
     this.panel = null;             // open reader drawer: toc | search | marks
     this.lastActivity = Date.now();
     this.search = { q: '', results: [], active: -1, capped: false };
+    this.speech = new ReadAloud(this);
   }
 
   get prefs() { return this.library.prefs; }
@@ -244,6 +247,10 @@ class App {
       type: 'file', webkitdirectory: true, tabindex: '-1', 'aria-hidden': 'true',
       onchange: () => { this.importFiles(this.folderInput.files); this.folderInput.value = ''; },
     });
+    this.restoreInput = h('input.hidden-file', {
+      type: 'file', accept: '.zip', tabindex: '-1', 'aria-hidden': 'true',
+      onchange: () => { const f = this.restoreInput.files[0]; this.restoreInput.value = ''; if (f) this.restoreLibrary(f); },
+    });
     this.clippingsInput = h('input.hidden-file', {
       type: 'file', accept: '.txt', tabindex: '-1', 'aria-hidden': 'true',
       onchange: () => { const f = this.clippingsInput.files[0]; this.clippingsInput.value = ''; if (f) this.importClippings(f); },
@@ -276,7 +283,7 @@ class App {
     this.readScreen = h('div.screen-read');
     this.dropOverlay = h('div.drop-overlay', h('div.drop-card', icon('upload', 34), h('div.drop-title', 'Drop books or folders to add them'), h('div.drop-sub', 'EPUB, Kindle (MOBI, AZW3), PDF, FB2, Word, HTML, Markdown and text')));
     const scrim = h('div.nav-scrim', { onclick: () => document.body.classList.remove('nav-open') });
-    document.body.append(this.shell, scrim, this.fileInput, this.folderInput, this.clippingsInput, this.readScreen, this.dropOverlay);
+    document.body.append(this.shell, scrim, this.fileInput, this.folderInput, this.clippingsInput, this.restoreInput, this.readScreen, this.dropOverlay);
   }
 
   go(view) {
@@ -832,6 +839,8 @@ class App {
         this.toggleRow('Page-turn animation', 'Pages swing over like paper when you turn them.', 'animate'),
         this.toggleRow('Show reading progress', 'Progress bar and page count under the page.', 'showProgress'),
         this.toggleRow('Auto-hide toolbars', 'Fade the reader toolbars while you read. Tap the middle of the page to bring them back.', 'autoHide'),
+        this.voiceRow(),
+        this.setting('Read-aloud speed', this.seg(SPEECH_RATES, this.prefs.ttsRate || 1, (v) => this.setPref('ttsRate', v, true), 'Read-aloud speed')),
       ));
     } else if (this.settingsTab === 'shortcuts') {
       root.appendChild(this.shortcutsEl());
@@ -947,6 +956,15 @@ class App {
     return this.setting(label, sw, hint);
   }
 
+  voiceRow() {
+    const voices = ReadAloud.voices(() => { if (this.screen === 'library' && this.view === 'settings' && this.settingsTab === 'reading') this.renderLibrary(); });
+    const sel = h('select.select', { 'aria-label': 'Read-aloud voice', onchange: () => this.setPref('ttsVoice', sel.value) },
+      h('option', { value: '' }, 'Match the book’s language'),
+      voices.map((v) => h('option', { value: v.name }, v.name.replace(/^Microsoft /, '').replace(/ - .*$/, '').replace(/ Desktop$/, '') + ' · ' + v.lang)));
+    sel.value = this.prefs.ttsVoice || '';
+    return this.setting('Read-aloud voice', sel, 'Press R while reading to listen. Folio uses the voices installed in Windows; add more under Settings › Time & language › Speech.');
+  }
+
   shortcutsEl() {
     return h('div.shortcut-grid', SHORTCUTS.map(([group, rows]) => h('div.card',
       h('div.card-head', h('h3', group)),
@@ -960,11 +978,15 @@ class App {
       navigator.storage.estimate().then((e) => { usage.textContent = fmtSize(e.usage || 0) + ' used on this device'; }).catch(() => { usage.textContent = 'Unavailable'; });
     } else usage.textContent = 'Unavailable';
     const total = this.library.records.reduce((n, r) => n + (r.size || 0), 0);
+    const about = h('span', 'Free and open source under the MIT licence.');
+    window.folioDesktop.appInfo().then((i) => { about.textContent = 'Version ' + i.version + ' · free and open source under the MIT licence.'; }).catch(() => {});
     return h('div.card.settings-card.narrow',
       this.setting('Books', h('span', this.library.records.length + ' · ' + fmtSize(total))),
       this.setting('Storage', usage, 'Everything is stored on this computer. Nothing is uploaded.'),
       this.setting('Add a folder', h('button.btn', { type: 'button', onclick: () => this.folderInput.click() }, icon('plus', 16), 'Choose folder…'), 'Adds every book in a folder and its subfolders. You can also drag a folder onto the window.'),
       this.setting('Kindle highlights', h('button.btn', { type: 'button', onclick: () => this.clippingsInput.click() }, icon('upload', 16), 'Import clippings…'), 'Pick “My Clippings.txt” from your Kindle’s documents folder. Highlights and notes are added to the matching books in your library.'),
+      this.setting('Back up library', h('button.btn', { type: 'button', disabled: !this.library.records.length, onclick: () => this.backupLibrary() }, icon('download', 16), 'Back up…'), 'Saves every book with its progress, highlights and bookmarks in one .zip file.'),
+      this.setting('Restore a backup', h('button.btn', { type: 'button', onclick: () => this.restoreInput.click() }, icon('upload', 16), 'Restore…'), 'Adds the books from a backup. Books you already have gain any highlights and bookmarks they’re missing.'),
       this.setting('Sample book', h('button.btn', { type: 'button', onclick: () => this.importSample() }, icon('reading', 16), 'Add Frankenstein'), 'A public-domain classic to try the reader with.'),
       this.setting('Reset appearance', h('button.btn', { type: 'button', onclick: () => { this.prefs.uiTheme = defaultPrefs().uiTheme; this.applyAppTheme(); this.setReading(defaultSettings()); this.toast('Appearance reset', 'check'); } }, 'Reset'), 'Restore the default theme, font and spacing.'),
       this.setting('Remove all books', h('button.btn.btn-danger', {
@@ -977,7 +999,35 @@ class App {
           this.renderLibrary();
         },
       }, icon('trash', 16), 'Remove all'), 'Deletes your whole library from this computer.'),
+      this.setting('About Folio', h('button.btn', { type: 'button', onclick: () => window.open(REPO_URL) }, 'View on GitHub'), about),
     );
+  }
+
+  async backupLibrary() {
+    this.toast('Preparing backup…', 'spin', true);
+    try {
+      const bytes = await this.library.backup();
+      const saved = await window.folioDesktop.saveFile('Folio backup ' + new Date().toISOString().slice(0, 10) + '.zip', bytes);
+      this.toast(saved ? 'Saved ' + saved.split(/[\\/]/).pop() : 'Backup cancelled', saved ? 'check' : 'info');
+    } catch (e) {
+      console.error('backup failed: ' + (e && e.message ? e.message : e));
+      this.toast('Couldn’t make the backup', 'info');
+    }
+  }
+
+  async restoreLibrary(file) {
+    this.toast('Restoring backup…', 'spin', true);
+    try {
+      const { added, updated } = await this.library.restore(await this.library.readBytes(file));
+      const parts = [];
+      if (added) parts.push('Added ' + added + (added === 1 ? ' book' : ' books'));
+      if (updated) parts.push(updated + (updated === 1 ? ' book was' : ' books were') + ' already here');
+      this.toast(parts.join(' · ') || 'The backup is empty', 'check');
+    } catch (e) {
+      if (!(e && e.friendly)) console.error('restore failed: ' + (e && e.message ? e.message : e));
+      this.toast(e && e.friendly ? e.message : 'Couldn’t restore that backup', 'info');
+    }
+    this.renderLibrary();
   }
 
   setReading(patch) {
@@ -1174,6 +1224,8 @@ class App {
       this.tickReading();
       this.library.saveRecord(rec);
     }
+    this.speech.stop();
+    this.hidePop();
     this.hideSelBar();
     this.closePopover();
     this.closeMenu();
@@ -1196,6 +1248,7 @@ class App {
 
     this.bmBtn = iconButton('bookmark', 'Bookmark this page (B)', () => this.toggleBookmark(), 'rd-bm');
     this.aaBtn = h('button.icon-btn.aa-btn', { type: 'button', 'aria-label': 'Appearance (S)', title: 'Appearance (S)', 'aria-haspopup': 'dialog', onclick: () => this.togglePopover() }, 'Aa');
+    this.ttsBtn = ReadAloud.supported() ? iconButton('speaker', 'Read aloud (R)', () => this.speech.toggle(), 'rd-tts') : null;
     const moreBtn = h('button.icon-btn', {
       type: 'button', 'aria-label': 'More', title: 'More', 'aria-haspopup': 'menu',
       onclick: () => this.openMenu(moreBtn, [
@@ -1219,11 +1272,12 @@ class App {
       ),
       this.rdChapter,
       h('div.rd-right',
-        iconButton('toc', 'Contents (T)', () => this.toggleDrawer('toc')),
-        iconButton('search', 'Search in book (F)', () => this.toggleDrawer('search')),
-        iconButton('pen', 'Annotations (A)', () => this.toggleDrawer('marks')),
+        iconButton('toc', 'Contents (T)', () => this.toggleDrawer('toc'), 'rd-panel'),
+        iconButton('search', 'Search in book (F)', () => this.toggleDrawer('search'), 'rd-panel'),
+        iconButton('pen', 'Annotations (A)', () => this.toggleDrawer('marks'), 'rd-panel'),
         h('span.rd-sep'),
         this.aaBtn,
+        this.ttsBtn,
         this.bmBtn,
         moreBtn,
       ),
@@ -1307,10 +1361,98 @@ class App {
     if (this.navLock || !this.reader.book) return;
     this.navLock = true;
     this.hideSelBar();
+    this.hidePop();
     setTimeout(() => { this.navLock = false; }, 260);
     const go = dir > 0 ? this.reader.nextPage() : this.reader.prevPage();
-    go.then(() => this.refreshProgress());
+    go.then(() => { this.refreshProgress(); this.speech.restart(); });
     this.lastActivity = Date.now();
+  }
+
+  setSpeaking(on) {
+    if (this.ttsBtn) {
+      this.ttsBtn.classList.toggle('on', on);
+      this.ttsBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+    if (on) this.toast('Reading aloud · press R to stop', 'speaker');
+  }
+
+  /* ---------------- Links, footnotes and look-ups ---------------- */
+
+  /* links in the book: web links open in the browser, footnotes pop up, other links jump */
+  followLink(d, frame) {
+    this.hidePop();
+    const target = this.reader.resolveLink(d.href);
+    if (!target) {
+      if (/^(https?|mailto):/i.test(d.href || '')) window.open(d.href);
+      return;
+    }
+    const note = this.reader.noteText(target, d);
+    if (!note) { this.goToLink(target); return; }
+    this.showPop({ frame, rect: d.rect },
+      h('div.pop-body.pop-note', note),
+      h('button.pop-link', { type: 'button', onclick: () => { this.hidePop(); this.goToLink(target); } }, 'Go to note'));
+  }
+
+  goToLink(target) {
+    this.reader.renderSection(target.spineIndex, null, null, null, target.anchor).then(() => { this.refreshProgress(); this.speech.restart(); });
+  }
+
+  /* definition of the selected word or phrase, from Wiktionary (or Wikipedia) */
+  async lookUp() {
+    const text = this.reader.lastSelection.replace(/\s+/g, ' ').trim();
+    const at = this.selAnchor;
+    this.hideSelBar();
+    if (!text || !at) return;
+    const title = h('div.pop-title', text.slice(0, 60));
+    const body = h('div.pop-body', h('div.pop-status', h('span.spinner'), 'Looking up…'));
+    const pop = this.showPop(at, title, body);
+    const meta = this.reader.book && this.reader.book.packaging && this.reader.book.packaging.metadata;
+    let found;
+    try {
+      found = await lookUpWord(text, String((meta && meta.language) || 'en').slice(0, 2).toLowerCase());
+    } catch (e) {
+      found = { error: 'Couldn’t reach Wiktionary. Looking up words needs an internet connection.' };
+    }
+    if (this.popEl !== pop) return;
+    body.innerHTML = '';
+    if (!found || found.error) {
+      body.appendChild(h('p.pop-status', found ? found.error : 'No definition found for “' + text.slice(0, 40) + '”.'));
+    } else {
+      title.textContent = found.title;
+      if (found.senses) body.append(...found.senses.map((s) => h('div.pop-sense', s.pos ? h('div.pop-pos', s.pos) : null, h('ol', s.defs.map((d) => h('li', d))))));
+      else body.appendChild(h('p', found.text));
+      if (found.url) pop.appendChild(h('button.pop-link', { type: 'button', onclick: () => window.open(found.url) }, 'More on ' + found.source));
+    }
+    this.placePop();
+  }
+
+  /* a small card next to a link or selection on the page */
+  showPop(at, ...content) {
+    this.hidePop();
+    this.popEl = h('div.pop-card', { role: 'dialog' }, content);
+    this.popAt = at;
+    this.readScreen.appendChild(this.popEl);
+    this.placePop();
+    return this.popEl;
+  }
+
+  placePop() {
+    const pop = this.popEl, at = this.popAt;
+    if (!pop || !at || !at.frame) return;
+    const fr = at.frame.getBoundingClientRect();
+    const r = at.rect || { x: fr.width / 2, y: 80, w: 0, h: 0 };
+    const w = pop.offsetWidth, ht = pop.offsetHeight;
+    let top = fr.top + r.y + r.h + 10;
+    if (top + ht > window.innerHeight - 12) top = Math.max(12, fr.top + r.y - ht - 10);
+    pop.style.left = Math.max(12, Math.min(window.innerWidth - w - 12, fr.left + r.x + r.w / 2 - w / 2)) + 'px';
+    pop.style.top = top + 'px';
+  }
+
+  hidePop() {
+    if (!this.popEl) return false;
+    this.popEl.remove();
+    this.popEl = null;
+    return true;
   }
 
   toggleBookmark() {
@@ -1370,9 +1512,9 @@ class App {
     d.innerHTML = '';
     d.appendChild(h('div.drawer-head', h('h3', title), iconButton('x', 'Close', () => this.closeDrawer())));
     this.panel = which;
-    this.readScreen.querySelectorAll('.rd-right .icon-btn').forEach((b) => b.classList.remove('on'));
+    this.readScreen.querySelectorAll('.rd-panel').forEach((b) => b.classList.remove('on'));
     const btnIdx = { toc: 0, search: 1, marks: 2 }[which];
-    const btn = this.readScreen.querySelectorAll('.rd-right .icon-btn')[btnIdx];
+    const btn = this.readScreen.querySelectorAll('.rd-panel')[btnIdx];
     if (btn) btn.classList.add('on');
     return d;
   }
@@ -1383,7 +1525,7 @@ class App {
     d.classList.remove('open');
     setTimeout(() => d.remove(), 220);
     this.panel = null;
-    this.readScreen.querySelectorAll('.rd-right .icon-btn').forEach((b) => b.classList.remove('on'));
+    this.readScreen.querySelectorAll('.rd-panel').forEach((b) => b.classList.remove('on'));
     this.showChrome();
     return true;
   }
@@ -1498,12 +1640,16 @@ class App {
     this.reader.lastSelection = msg.text;
     if (!frame) return;
     this.hideSelBar();
+    this.hidePop();
+    this.selAnchor = { frame, rect: msg.rect };
+    const words = msg.text.trim().split(/\s+/).length;
     const bar = h('div.sel-bar', { role: 'toolbar', 'aria-label': 'Selection' },
       HL_ORDER.map((c) => h('button.sel-color', {
         type: 'button', 'aria-label': 'Highlight ' + c, title: 'Highlight ' + c, style: { '--c': HL_COLORS[c].solid },
         onclick: () => { this.reader.addHighlight(c); this.hideSelBar(); this.toast('Highlight saved', 'pen'); if (this.panel === 'marks') this.openMarks(); },
       })),
       h('span.sel-sep'),
+      words <= 4 ? h('button.sel-btn', { type: 'button', title: 'Definition from Wiktionary (online)', onclick: () => this.lookUp() }, icon('book', 15), 'Look up') : null,
       h('button.sel-btn', { type: 'button', onclick: () => this.noteFromSelection() }, icon('note', 15), 'Note'),
       h('button.sel-btn', { type: 'button', onclick: () => { this.copy(this.reader.lastSelection); this.hideSelBar(); } }, icon('copy', 15), 'Copy'),
     );
@@ -1574,7 +1720,7 @@ class App {
 
     if (k === 'Escape') {
       if (this.closeMenu() || this.closeModal()) return;
-      if (this.screen === 'read' && (this.hideSelBar() || this.closePopover() || this.closeDrawer())) return;
+      if (this.screen === 'read' && (this.hidePop() || this.hideSelBar() || this.closePopover() || this.closeDrawer() || this.speech.stop())) return;
       return;
     }
     if (this.modalEl) return;
@@ -1606,6 +1752,7 @@ class App {
       a: () => this.toggleDrawer('marks'), m: () => this.toggleDrawer('marks'),
       s: () => this.togglePopover(),
       b: () => this.toggleBookmark(),
+      r: () => this.speech.toggle(),
       i: () => this.showDetails(this.reader.record),
       h: () => {
         if (this.reader.lastSelection) { this.reader.addHighlight('yellow'); this.hideSelBar(); this.toast('Highlight saved', 'pen'); if (this.panel === 'marks') this.openMarks(); }
@@ -1630,6 +1777,7 @@ class App {
     if (this.menuEl && !this.menuEl.contains(t) && !(this.menuAnchor && this.menuAnchor.contains(t))) this.closeMenu();
     if (this.popoverEl && !this.popoverEl.contains(t) && !this.aaBtn.contains(t)) this.closePopover();
     if (this.selBar && !this.selBar.contains(t)) this.hideSelBar();
+    if (this.popEl && !this.popEl.contains(t)) this.hidePop();
   }
 
   frameMessage(ev) {
@@ -1640,7 +1788,8 @@ class App {
     if (!d) return;
     this.lastActivity = Date.now();
     if (d.t === 'sel') { this.closeMenu(); this.closePopover(); this.showSelBar(d, frame); }
-    else if (d.t === 'selclear') { this.reader.lastSelection = ''; this.hideSelBar(); this.closeMenu(); this.closePopover(); }
+    else if (d.t === 'selclear') { this.reader.lastSelection = ''; this.hideSelBar(); this.hidePop(); this.closeMenu(); this.closePopover(); }
+    else if (d.t === 'link') this.followLink(d, frame);
     else if (d.t === 'key') this.key({ key: d.key, ctrlKey: !!d.ctrl, metaKey: false, fromFrame: true });
     else if (d.t === 'turn') this.turn(Number(d.dir));
     else if (d.t === 'tap') {
@@ -1693,6 +1842,7 @@ class App {
     window.addEventListener('resize', () => {
       this.closeMenu();
       this.hideSelBar();
+      this.hidePop();
       if (this.popoverEl) this.place(this.popoverEl, this.aaBtn);
       if (this.screen !== 'read' || !this.reader.book) return;
       clearTimeout(this.resizeTimer);

@@ -13,8 +13,12 @@ contextBridge.exposeInMainWorld('folioDesktop', {
   onAddFolder(cb) {
     ipcRenderer.on('add-folder', () => cb());
   },
-  // Save dialog for exports; resolves to the chosen path, or null if cancelled.
-  saveFile(name, text) {
-    return ipcRenderer.invoke('save-file', name, text);
+  // Save dialog for exports (text or bytes); resolves to the chosen path, or null if cancelled.
+  saveFile(name, data) {
+    return ipcRenderer.invoke('save-file', name, data);
+  },
+  // { version }
+  appInfo() {
+    return ipcRenderer.invoke('app-info');
   },
 });

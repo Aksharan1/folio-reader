@@ -3,6 +3,7 @@
    ========================================================= */
 
 const PREFS_KEY = 'folio.prefs.v1';
+const BACKUP_FILE = 'folio-library.json';
 
 /* epub.js keeps loading the contents after `opened` resolves; destroying a book before that
    finishes makes it throw, so wait for it */
@@ -21,6 +22,8 @@ function defaultPrefs() {
     showProgress: true,    // bottom progress bar in the reader
     autoHide: false,       // fade reader toolbars while reading
     twoPages: true,        // two pages side by side on wide windows
+    ttsVoice: '',          // read-aloud voice name; empty picks one for the book's language
+    ttsRate: 1,            // read-aloud speed
   };
 }
 
@@ -191,6 +194,55 @@ class Library {
     this.byId.set(id, rec);
     discardBook(book);
     return { rec, duplicate: false };
+  }
+
+  /* ---------- backup ---------- */
+
+  /* the whole library as a zip: every book, plus a JSON file with progress, highlights and bookmarks */
+  async backup() {
+    const zip = new JSZip();
+    const records = [];
+    for (const r of this.records) {
+      const data = await this.dataOf(r.id);
+      if (!data) continue;
+      zip.file('books/' + r.id + '.epub', data, { compression: 'STORE' });
+      const { cover, ...rest } = r;   // covers come back out of the books on restore
+      records.push(rest);
+    }
+    zip.file(BACKUP_FILE, JSON.stringify({ app: 'Folio', version: 1, saved: Date.now(), records }, null, 1));
+    return zip.generateAsync({ type: 'uint8array' });
+  }
+
+  /* merges a backup in: missing books are added, and books already here gain any highlights
+     and bookmarks they lack and keep whichever reading position is newer.
+     Resolves to { added, updated } */
+  async restore(bytes) {
+    let zip = null;
+    try { zip = await JSZip.loadAsync(bytes); } catch (e) {}
+    const meta = zip && zip.file(BACKUP_FILE);
+    if (!meta) throw bookError('That file isn’t a Folio backup');
+    const { records } = JSON.parse(await meta.async('string'));
+    const merge = (mine = [], theirs = [], key) => {
+      const have = new Set(mine.map(key));
+      return mine.concat(theirs.filter((x) => !have.has(key(x))));
+    };
+    let added = 0, updated = 0;
+    for (const saved of records || []) {
+      const file = zip.file('books/' + saved.id + '.epub');
+      if (!file) continue;
+      const { rec, duplicate } = await this.addBytes(saved.title + '.epub', await file.async('uint8array'), saved.format || 'EPUB');
+      rec.annotations = merge(rec.annotations, saved.annotations, (a) => a.spineIndex + '|' + a.quote);
+      rec.bookmarks = merge(rec.bookmarks, saved.bookmarks, (b) => b.spineIndex + '|' + Math.round((b.frac || 0) * 1000));
+      if ((saved.lastOpened || 0) > (rec.lastOpened || 0)) {
+        Object.assign(rec, { pos: saved.pos, pct: saved.pct, lastOpened: saved.lastOpened, chapterLabel: saved.chapterLabel, totalChars: saved.totalChars });
+      }
+      rec.readMs = Math.max(rec.readMs || 0, saved.readMs || 0);
+      rec.favourite = !!(rec.favourite || saved.favourite);
+      if (!duplicate && saved.added) rec.added = saved.added;
+      this.saveRecord(rec);
+      if (duplicate) updated++; else added++;
+    }
+    return { added, updated };
   }
 
   remove(id) {

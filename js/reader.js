@@ -157,7 +157,7 @@ class Reader {
 
   /* side: 'single', or 'left' / 'right' in the two-page view. Only the left page positions
      itself; the app scrolls the right one to the page after it. */
-  buildFrameHtml(spineIndex, frac, query, nth, side = 'single') {
+  buildFrameHtml(spineIndex, frac, query, nth, side = 'single', anchor = null) {
     const lead = side !== 'right';
     const s = this.settings;
     const tone = TONES[s.tone];
@@ -182,6 +182,7 @@ class Reader {
       scrollTo: lead && query || null,
       scrollNth: nth || 0,
       frac: !lead || frac === null || frac === undefined ? null : frac,
+      anchor: lead && anchor || null,
       side,
       dbg: (typeof window !== 'undefined' && window.__erDebug) ? 1 : 0,
     };
@@ -203,6 +204,7 @@ ${famDecl}
 ${alignDecl}
 body,p,li,dd,dt,blockquote,pre{line-height:${ls} !important;}
 mark.erhl{color:inherit;border-radius:2px;}
+${R} body .er-speaking{background-color:${tone.sel} !important;border-radius:3px;}
 ::selection{background:${tone.sel};}
 `;
 
@@ -295,6 +297,15 @@ try{
       var se2 = document.scrollingElement;
       se2.scrollTop = Math.max(0, Math.round(top - 24));
       if (d.dbg){ var de0 = document.getElementById('er-data'); if (de0) de0.setAttribute('data-dbg', (found ? '1' : '0') + '|' + Math.round(top) + '|' + Math.round(se2.scrollTop)); }
+    }
+  }
+
+  /* a link inside the book: land on the page its target starts on */
+  if (d.anchor){
+    var erAt = document.getElementById(d.anchor) || document.getElementsByName(d.anchor)[0];
+    if (erAt){
+      var se3 = document.scrollingElement;
+      se3.scrollTop = Math.max(0, Math.round(erAt.getBoundingClientRect().top + se3.scrollTop));
     }
   }
 
@@ -431,6 +442,18 @@ try{
     }catch(e2){}
   });
 
+  /* links go to the app: footnotes open in a popup, links within the book jump to their
+     target, web links open in the browser */
+  document.addEventListener('click', function(ev){
+    var a = ev.target && ev.target.closest ? ev.target.closest('a[href]') : null;
+    if (!a) return;
+    ev.preventDefault();
+    var rc = a.getBoundingClientRect();
+    var kind = (a.getAttribute('epub:type') || '') + ' ' + (a.getAttribute('role') || '');
+    erPost({t:'link', href:a.getAttribute('href'), noteref:/noteref/i.test(kind), label:(a.textContent || '').trim().slice(0, 12),
+      sup:!!(a.closest('sup') || a.querySelector('sup')), rect:{x:rc.left, y:rc.top, w:rc.width, h:rc.height}});
+  }, true);
+
   /* the wheel turns pages instead of free-scrolling between them */
   var erWheelAt = 0;
   document.addEventListener('wheel', function(ev){
@@ -453,10 +476,16 @@ try{
 })();
 `;
 
-    const json = JSON.stringify(data).replace(/</g, '\\u003c');    const headInject = `<style id="er-css">${css}</style><script type="application/json" id="er-data">${json}</script>`;
-    const tailInject = `<script id="er-js">${js}<\/script>`;
+    const json = JSON.stringify(data).replace(/</g, '\\u003c');
+    const headInject = `<style id="er-css">${css}</style><script type="application/json" id="er-data">${json}</script>`;
+    /* only the reader's own script may run: a book's scripts and inline handlers are blocked */
+    const nonce = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    const policy = `<meta http-equiv="Content-Security-Policy" content="script-src 'nonce-${nonce}'">`;
+    const tailInject = `<script id="er-js" nonce="${nonce}">${js}<\/script>`;
 
-    let html = this.htmlCache.get(spineIndex);
+    let html = this.htmlCache.get(spineIndex).replace(/<script\b[\s\S]*?<\/script\s*>/gi, '');
+    const headOpen = html.match(/<head\b[^>]*>/i);
+    html = headOpen ? html.replace(headOpen[0], headOpen[0] + policy) : policy + html;
     const headClose = html.indexOf('</head>');
     if (headClose !== -1) html = html.slice(0, headClose) + headInject + html.slice(headClose);
     else html = headInject + html;
@@ -466,14 +495,14 @@ try{
     return html;
   }
 
-  async renderSection(spineIndex, frac, query, nth) {
+  async renderSection(spineIndex, frac, query, nth, anchor) {
     const book = this.book;
     if (spineIndex < 0 || spineIndex >= book.spine.length) return;
 
     const spread = this.wantSpread();
 
     /* same section, no search jump: scroll the live frame, never rebuild it */
-    if (this.frame && this.renderedSection === spineIndex && !query && this.doc() && spread === !!this.frame2) {
+    if (this.frame && this.renderedSection === spineIndex && !query && !anchor && this.doc() && spread === !!this.frame2) {
       this.spineIndex = spineIndex;
       const d = this.doc();
       const tops = this.pageTops();
@@ -505,7 +534,7 @@ try{
       f.title = side === 'right' ? 'Book page (right)' : 'Book page';
       f.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-popups');
       f.loaded = new Promise((res) => { f.addEventListener('load', res); });
-      f.srcdoc = this.buildFrameHtml(spineIndex, frac, query, nth, side);
+      f.srcdoc = this.buildFrameHtml(spineIndex, frac, query, nth, side, anchor);
       if (this.flipDir && !this.animateOff()) {
         if (spread) {
           f.style.opacity = '0.3';
@@ -551,6 +580,37 @@ try{
     if (right) right.style.visibility = '';
     for (const f of olds) if (f.parentNode) f.parentNode.removeChild(f);
     this.updateMask();
+  }
+
+  /* where a link in the current section points: { spineIndex, anchor }, or null for web links */
+  resolveLink(href) {
+    if (!href || !this.book || /^[a-z][a-z0-9+.-]*:/i.test(href)) return null;
+    const here = this.book.spine.get(this.spineIndex);
+    const u = new URL(href, 'http://book/' + here.href);
+    const path = decodeURIComponent(u.pathname.slice(1));
+    const sec = href.startsWith('#') ? here : this.book.spine.get(path) || this.book.spine.get(encodeURI(path));
+    if (!sec) return null;
+    return { spineIndex: sec.index, anchor: decodeURIComponent(u.hash.slice(1)) || null };
+  }
+
+  /* the text of the footnote a link points at, or null when the target isn't a note.
+     hint is what the page knows about the link: noteref type, its label, whether it's superscript */
+  noteText(target, hint) {
+    const html = this.htmlCache.get(target.spineIndex);
+    if (!html || !target.anchor) return null;
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const el = doc.getElementById(target.anchor) || doc.getElementsByName(target.anchor)[0];
+    if (!el) return null;
+    const typed = (n) => !!n && /footnote|endnote|rearnote|\bnote\b/i.test((n.getAttribute('epub:type') || '') + ' ' + (n.getAttribute('role') || '') + ' ' + n.className);
+    const marker = hint.sup || /^[[(]?[\w*†‡§]{1,3}[\])]?$/.test(hint.label || '');
+    if (!hint.noteref && !typed(el) && !typed(el.parentElement) && !marker) return null;
+    /* the id often sits on an anchor inside the note's paragraph */
+    let box = el;
+    while (/^(A|SPAN|SUP|SUB|EM|I|B|STRONG|SMALL)$/.test(box.tagName) && box.parentElement && box.parentElement.tagName !== 'BODY') box = box.parentElement;
+    box.querySelectorAll('a[role="doc-backlink"], a[epub\\:type~="backlink"]').forEach((a) => a.remove());
+    const text = box.textContent.replace(/[↩↑]︎?/g, '').replace(/\s+/g, ' ').trim();
+    if (!text || (text.length > 1200 && !typed(el) && !typed(box))) return null;
+    return text.length > 1500 ? text.slice(0, 1500) + '…' : text;
   }
 
   /* the page frames on screen: one, or two side by side */
