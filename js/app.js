@@ -491,7 +491,7 @@ class App {
         cover,
         h('div.book-meta',
           h('div.book-title-row', h('h3.book-title', { title: rec.title }, rec.title), this.kebab(rec, true)),
-          h('div.book-author', rec.author || 'Unknown author'),
+          h('div.book-author', { title: rec.author || null }, rec.author || 'Unknown author'),
           h('div.book-progress', this.progressBar(pct), h('span', pct + '%')),
         ),
       );

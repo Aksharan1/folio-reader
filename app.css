@@ -216,7 +216,7 @@ body.reading .shell { display: none; }
   display: flex; flex-direction: column; gap: 4px;
   padding: 18px 14px 14px;
   background: var(--surface); border-right: 1px solid var(--line);
-  overflow-y: auto;
+  overflow: hidden auto;
 }
 .brand { display: flex; align-items: center; gap: 10px; padding: 4px 10px 22px; font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
 .logo-mark { color: var(--accent-2); display: inline-grid; }
@@ -327,10 +327,11 @@ body.reading .shell { display: none; }
 /* ---------- grid ---------- */
 
 .book-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 30px 24px; }
-.book { cursor: pointer; border-radius: 10px; outline-offset: 6px; min-width: 0; }
+.book { display: flex; flex-direction: column; cursor: pointer; border-radius: 10px; outline-offset: 6px; min-width: 0; }
 .book .cover { transition: transform .2s ease, box-shadow .2s ease; }
 .book:hover .cover { transform: translateY(-4px); box-shadow: 0 18px 34px rgba(0, 0, 0, .45), 0 2px 6px rgba(0, 0, 0, .4); }
-.book-meta { padding: 12px 2px 0; }
+/* cards in a row share a height; the progress bar sits at the bottom so the bars line up */
+.book-meta { display: flex; flex-direction: column; flex: 1; padding: 12px 2px 0; }
 .book-title-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 4px; }
 .book-title {
   margin: 0; font-size: 14px; font-weight: 600; line-height: 1.3;
@@ -339,7 +340,7 @@ body.reading .shell { display: none; }
 .book .kebab { width: 26px; height: 26px; margin: -3px -6px 0 0; opacity: 0; }
 .book:hover .kebab, .book:focus-within .kebab, .kebab[aria-expanded="true"] { opacity: 1; }
 .book-author { margin-top: 3px; font-size: 12.5px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.book-progress { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.book-progress { display: flex; align-items: center; gap: 10px; margin-top: auto; padding-top: 10px; }
 .book-progress span { font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; min-width: 30px; text-align: right; }
 
 /* ---------- list ---------- */
