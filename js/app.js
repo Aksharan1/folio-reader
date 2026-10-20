@@ -240,6 +240,14 @@ class App {
       type: 'file', accept: BOOK_ACCEPT, multiple: true, tabindex: '-1', 'aria-hidden': 'true',
       onchange: () => { this.importFiles(this.fileInput.files); this.fileInput.value = ''; },
     });
+    this.folderInput = h('input.hidden-file', {
+      type: 'file', webkitdirectory: true, tabindex: '-1', 'aria-hidden': 'true',
+      onchange: () => { this.importFiles(this.folderInput.files); this.folderInput.value = ''; },
+    });
+    this.clippingsInput = h('input.hidden-file', {
+      type: 'file', accept: '.txt', tabindex: '-1', 'aria-hidden': 'true',
+      onchange: () => { const f = this.clippingsInput.files[0]; this.clippingsInput.value = ''; if (f) this.importClippings(f); },
+    });
 
     this.searchInput = h('input', {
       type: 'search', placeholder: 'Search books or authors…', 'aria-label': 'Search library', spellcheck: 'false',
@@ -266,9 +274,9 @@ class App {
 
     this.shell = h('div.shell', this.sidebar, h('main.main', this.topbar, this.content));
     this.readScreen = h('div.screen-read');
-    this.dropOverlay = h('div.drop-overlay', h('div.drop-card', icon('upload', 34), h('div.drop-title', 'Drop to add to your library'), h('div.drop-sub', 'EPUB, Kindle (MOBI, AZW3), PDF, FB2, Word, HTML, Markdown and text')));
+    this.dropOverlay = h('div.drop-overlay', h('div.drop-card', icon('upload', 34), h('div.drop-title', 'Drop books or folders to add them'), h('div.drop-sub', 'EPUB, Kindle (MOBI, AZW3), PDF, FB2, Word, HTML, Markdown and text')));
     const scrim = h('div.nav-scrim', { onclick: () => document.body.classList.remove('nav-open') });
-    document.body.append(this.shell, scrim, this.fileInput, this.readScreen, this.dropOverlay);
+    document.body.append(this.shell, scrim, this.fileInput, this.folderInput, this.clippingsInput, this.readScreen, this.dropOverlay);
   }
 
   go(view) {
@@ -597,7 +605,9 @@ class App {
 
   viewAnnotations() {
     const root = h('section.view');
-    root.appendChild(this.pageHead('Annotations', 'Highlights, notes and bookmarks across your books'));
+    const anyNotes = this.library.records.some((r) => (r.annotations || []).length);
+    root.appendChild(this.pageHead('Annotations', 'Highlights, notes and bookmarks across your books',
+      anyNotes ? h('button.btn', { type: 'button', title: 'Save every highlight and note as a Markdown file', onclick: () => this.exportNotes(this.library.records, 'Folio highlights.md') }, icon('download', 16), 'Export') : null));
     const totals = { highlights: 0, notes: 0, bookmarks: 0 };
     const per = [];
     for (const rec of this.library.records) {
@@ -733,6 +743,39 @@ class App {
     else this.renderLibrary();
   }
 
+  /* highlights and notes as Markdown: a heading per book, then per chapter, in reading order */
+  notesMarkdown(recs) {
+    const out = [];
+    for (const rec of recs) {
+      const anns = (rec.annotations || []).filter((a) => a.quote)
+        .sort((a, b) => (a.spineIndex - b.spineIndex) || ((a.pct || 0) - (b.pct || 0)) || (a.time - b.time));
+      if (!anns.length) continue;
+      out.push('# ' + rec.title, '');
+      if (rec.author) out.push('*' + rec.author + '*', '');
+      let chapter = null;
+      for (const a of anns) {
+        if ((a.chapter || '') !== chapter) {
+          chapter = a.chapter || '';
+          if (chapter) out.push('## ' + chapter, '');
+        }
+        out.push('> ' + a.quote, '');
+        if (a.note) out.push(a.note.replace(/\n{2,}/g, '\n'), '');
+      }
+    }
+    return out.join('\n');
+  }
+
+  async exportNotes(recs, fileName) {
+    const md = this.notesMarkdown(recs);
+    if (!md) { this.toast('No highlights to export yet', 'info'); return; }
+    try {
+      const saved = await window.folioDesktop.saveFile(fileName.replace(/[\\/:*?"<>|]+/g, ''), md);
+      if (saved) this.toast('Saved ' + saved.split(/[\\/]/).pop(), 'check');
+    } catch (e) {
+      this.toast('Couldn’t save the file', 'info');
+    }
+  }
+
   copy(text) {
     const done = () => this.toast('Copied to clipboard', 'copy');
     try {
@@ -785,6 +828,7 @@ class App {
       ));
     } else if (this.settingsTab === 'reading') {
       root.appendChild(h('div.card.settings-card.narrow',
+        this.toggleRow('Two pages on wide windows', 'Show two pages side by side, like an open book, when the window is wide enough.', 'twoPages'),
         this.toggleRow('Page-turn animation', 'Pages swing over like paper when you turn them.', 'animate'),
         this.toggleRow('Show reading progress', 'Progress bar and page count under the page.', 'showProgress'),
         this.toggleRow('Auto-hide toolbars', 'Fade the reader toolbars while you read. Tap the middle of the page to bring them back.', 'autoHide'),
@@ -919,6 +963,8 @@ class App {
     return h('div.card.settings-card.narrow',
       this.setting('Books', h('span', this.library.records.length + ' · ' + fmtSize(total))),
       this.setting('Storage', usage, 'Everything is stored on this computer. Nothing is uploaded.'),
+      this.setting('Add a folder', h('button.btn', { type: 'button', onclick: () => this.folderInput.click() }, icon('plus', 16), 'Choose folder…'), 'Adds every book in a folder and its subfolders. You can also drag a folder onto the window.'),
+      this.setting('Kindle highlights', h('button.btn', { type: 'button', onclick: () => this.clippingsInput.click() }, icon('upload', 16), 'Import clippings…'), 'Pick “My Clippings.txt” from your Kindle’s documents folder. Highlights and notes are added to the matching books in your library.'),
       this.setting('Sample book', h('button.btn', { type: 'button', onclick: () => this.importSample() }, icon('reading', 16), 'Add Frankenstein'), 'A public-domain classic to try the reader with.'),
       this.setting('Reset appearance', h('button.btn', { type: 'button', onclick: () => { this.prefs.uiTheme = defaultPrefs().uiTheme; this.applyAppTheme(); this.setReading(defaultSettings()); this.toast('Appearance reset', 'check'); } }, 'Reset'), 'Restore the default theme, font and spacing.'),
       this.setting('Remove all books', h('button.btn.btn-danger', {
@@ -979,6 +1025,14 @@ class App {
 
   async importFiles(fileList) {
     const all = Array.from(fileList || []);
+    /* a Kindle's My Clippings.txt holds highlights, not a book; it's read after any books it came with */
+    const clippings = all.filter((f) => isClippingsFile(f.name));
+    if (clippings.length) {
+      const books = all.filter((f) => !clippings.includes(f));
+      const latest = books.length ? await this.importFiles(books) : null;
+      for (const f of clippings) await this.importClippings(f);
+      return latest;
+    }
     const files = all.filter((f) => bookFormat(f.name) || f.type === 'application/epub+zip');
     if (!files.length) {
       if (all.length) this.toast('That file type isn’t supported', 'info');
@@ -1013,6 +1067,22 @@ class App {
     const files = list.map((f) => new File([f.data], f.name));
     const rec = await this.importFiles(files);
     if (rec && files.length === 1) this.openBook(rec);
+  }
+
+  async importClippings(file) {
+    this.toast('Adding Kindle highlights…', 'spin', true);
+    try {
+      const res = await importKindleClippings(this.library, await file.text());
+      const n = (k, one, many) => k + ' ' + (k === 1 ? one : many);
+      const parts = [res.added ? 'Added ' + n(res.added, 'highlight', 'highlights') : 'No new highlights'];
+      if (res.notes) parts.push(n(res.notes, 'note', 'notes'));
+      if (res.unmatched.length) parts.push(n(res.unmatched.length, 'book isn’t', 'books aren’t') + ' in your library');
+      this.toast(parts.join(' · '), res.added ? 'pen' : 'info');
+    } catch (e) {
+      console.error('clippings import failed: ' + (e && e.message ? e.message : e));
+      this.toast('Couldn’t read that clippings file', 'info');
+    }
+    this.renderLibrary();
   }
 
   async importSample() {
@@ -1114,6 +1184,7 @@ class App {
     this.readScreen.className = 'screen-read';
     this.readScreen.innerHTML = '';
     this.reader.frame = null;
+    this.reader.frame2 = null;
     this.reader.renderedSection = null;
     this.renderLibrary();
   }
@@ -1130,6 +1201,8 @@ class App {
       onclick: () => this.openMenu(moreBtn, [
         { label: 'Book details', icon: 'info', hint: 'I', run: () => this.showDetails(this.reader.record) },
         { label: this.reader.record.favourite ? 'Remove from favourites' : 'Add to favourites', icon: 'heart', run: () => this.toggleFavourite(this.reader.record) },
+        '-',
+        { label: 'Export highlights', icon: 'download', run: () => this.exportNotes([this.reader.record], this.reader.record.title + ' - highlights.md') },
         '-',
         { label: 'Go to beginning', icon: 'first', hint: 'Home', run: () => this.reader.goBeginning().then(() => this.refreshProgress()) },
         { label: 'Go to end', icon: 'last', hint: 'End', run: () => this.reader.goEnd().then(() => this.refreshProgress()) },
@@ -1210,7 +1283,7 @@ class App {
     const rec = this.reader.record;
     rec.chapterLabel = m.chapter;
     this.rdChapter.textContent = m.chapter || '';
-    this.rdPage.textContent = 'Page ' + m.page + ' of ' + m.pages;
+    this.rdPage.textContent = m.lastPage > m.page ? 'Pages ' + m.page + '–' + m.lastPage + ' of ' + m.pages : 'Page ' + m.page + ' of ' + m.pages;
     this.rdPct.textContent = m.pct + '%';
     if (document.activeElement !== this.scrub) this.scrub.value = Math.round(m.pct * 10);
     this.paintScrub();
@@ -1421,9 +1494,9 @@ class App {
 
   /* ---------------- Selection toolbar ---------------- */
 
-  showSelBar(msg) {
+  showSelBar(msg, frame = this.reader.frame) {
     this.reader.lastSelection = msg.text;
-    if (!this.reader.frame) return;
+    if (!frame) return;
     this.hideSelBar();
     const bar = h('div.sel-bar', { role: 'toolbar', 'aria-label': 'Selection' },
       HL_ORDER.map((c) => h('button.sel-color', {
@@ -1435,7 +1508,7 @@ class App {
       h('button.sel-btn', { type: 'button', onclick: () => { this.copy(this.reader.lastSelection); this.hideSelBar(); } }, icon('copy', 15), 'Copy'),
     );
     this.readScreen.appendChild(bar);
-    const fr = this.reader.frame.getBoundingClientRect();
+    const fr = frame.getBoundingClientRect();
     const r = msg.rect || { x: fr.width / 2, y: 80, w: 0, h: 0 };
     const cx = fr.left + r.x + r.w / 2;
     let top = fr.top + r.y - bar.offsetHeight - 10;
@@ -1560,12 +1633,13 @@ class App {
   }
 
   frameMessage(ev) {
-    if (!this.reader.frame || ev.source !== this.reader.frame.contentWindow) return;
+    const frame = this.reader.pages().find((f) => ev.source === f.contentWindow);
+    if (!frame) return;
     let d;
     try { d = JSON.parse(ev.data); } catch (err) { return; }
     if (!d) return;
     this.lastActivity = Date.now();
-    if (d.t === 'sel') { this.closeMenu(); this.closePopover(); this.showSelBar(d); }
+    if (d.t === 'sel') { this.closeMenu(); this.closePopover(); this.showSelBar(d, frame); }
     else if (d.t === 'selclear') { this.reader.lastSelection = ''; this.hideSelBar(); this.closeMenu(); this.closePopover(); }
     else if (d.t === 'key') this.key({ key: d.key, ctrlKey: !!d.ctrl, metaKey: false, fromFrame: true });
     else if (d.t === 'turn') this.turn(Number(d.dir));
@@ -1596,7 +1670,7 @@ class App {
       e.preventDefault();
       depth = 0;
       this.dropOverlay.classList.remove('on');
-      if (this.screen === 'library') this.importFiles(e.dataTransfer.files);
+      if (this.screen === 'library') droppedFiles(e.dataTransfer).then((files) => this.importFiles(files));
     });
   }
 
@@ -1629,8 +1703,31 @@ class App {
     this.wireDrop();
 
     window.folioDesktop.onAddBooks(() => this.fileInput.click());
+    window.folioDesktop.onAddFolder(() => this.folderInput.click());
     window.folioDesktop.onOpenFiles((files) => this.openExternal(files));
   }
+}
+
+/* files dropped on the window, with dropped folders opened up (subfolders included) */
+async function droppedFiles(dt) {
+  // entries have to be taken before the drop event returns
+  const entries = [...(dt.items || [])].map((it) => it.webkitGetAsEntry && it.webkitGetAsEntry()).filter(Boolean);
+  if (!entries.some((en) => en.isDirectory)) return [...dt.files];
+  const out = [];
+  const walk = async (en) => {
+    if (en.isFile) {
+      if (bookFormat(en.name) || isClippingsFile(en.name)) out.push(await new Promise((res, rej) => en.file(res, rej)));
+      return;
+    }
+    const rd = en.createReader();
+    for (let batch; (batch = await new Promise((res, rej) => rd.readEntries(res, rej))).length;) {
+      for (const child of batch) await walk(child);
+    }
+  };
+  for (const en of entries) {
+    try { await walk(en); } catch (e) {}
+  }
+  return out;
 }
 
 const library = new Library();

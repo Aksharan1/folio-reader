@@ -3,7 +3,7 @@
 // Set SHOTS=<dir> to save screenshots of each step.
 import puppeteer from 'puppeteer';
 import JSZip from 'jszip';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { launchApp } from './launch.mjs';
@@ -41,6 +41,8 @@ try {
   console.log('Library');
   await page.goto('app://folio/index.html', { waitUntil: 'networkidle0' });
   check('shows empty state', await waitFor(() => document.querySelector('.empty h2')?.textContent.includes('empty')));
+  // one page at a time for the reader checks; the two-page view has its own section
+  await page.evaluate(() => app.setPref('twoPages', false));
   await shot('01-empty');
 
   await page.click('.empty-actions .btn:not(.btn-primary)');
@@ -152,6 +154,8 @@ try {
   await page.evaluate(() => app.go('annotations'));
   check('annotations page', await waitFor(() => document.querySelectorAll('.ann').length === 1));
   await shot('12-annotations');
+  const md = await page.evaluate(() => app.notesMarkdown(app.library.records));
+  check('highlights export as Markdown', /^# Frankenstein/.test(md) && /\n## .+\n/.test(md) && /\n> \S/.test(md), md.split('\n').slice(0, 7).join(' ⏎ '));
   await page.evaluate(() => app.go('authors'));
   check('authors page', await waitFor(() => document.querySelectorAll('.author').length === 1));
   await page.evaluate(() => app.go('settings'));
@@ -213,10 +217,63 @@ try {
   });
   check('page follows the theme', styled.body === 'rgb(23, 26, 39)' && styled.wrap === 'rgba(0, 0, 0, 0)' && styled.p === 'rgb(212, 215, 227)', JSON.stringify(styled));
 
+  console.log('Two-page view');
+  await page.evaluate(async () => {
+    app.setPref('twoPages', true);
+    await app.openBook(app.library.records.find((r) => r.title.startsWith('Frankenstein')));
+    await app.reader.renderSection(8, 0);
+    app.refreshProgress();
+  });
+  await frameReady();
+  await sleep(300);
+  const spread = () => page.evaluate(() => {
+    const [l, r] = document.querySelectorAll('.er-frame');
+    const tops = l.contentDocument.__erTops || [];
+    const at = (f) => tops.indexOf(f.contentDocument.scrollingElement.scrollTop);
+    return { frames: document.querySelectorAll('.er-frame').length, label: document.querySelector('.rd-page').textContent, left: at(l), right: r ? at(r) : -1, section: app.reader.spineIndex };
+  });
+  const s0 = await spread();
+  check('two pages side by side', s0.frames === 2 && s0.left === 0 && s0.right === 1 && /^Pages 1–2 of/.test(s0.label), JSON.stringify(s0));
+  await shot('15-two-pages');
+  await page.keyboard.press('ArrowRight');
+  await sleep(700);
+  const s1 = await spread();
+  check('a turn moves on two pages', s1.section === s0.section ? s1.left === 2 && s1.right === 3 : s1.left === 0, JSON.stringify(s1));
+  await page.keyboard.press('ArrowLeft');
+  await sleep(700);
+  const s2 = await spread();
+  check('and back again', JSON.stringify(s2) === JSON.stringify(s0), JSON.stringify(s2));
+  await page.evaluate(() => { app.setPref('twoPages', false); app.closeBook(); });
+
+  console.log('Kindle highlights');
+  const clipDir = join(tmpdir(), 'folio-clippings');
+  mkdirSync(clipDir, { recursive: true });
+  const clip = (head, meta, text) => `${head}\r\n- Your ${meta} | Added on Saturday, 3 February 2018 10:31:32\r\n\r\n${text}\r\n==========\r\n`;
+  writeFileSync(join(clipDir, 'My Clippings.txt'), '﻿' + [
+    clip('Frankenstein; Or, The Modern Prometheus (Shelley, Mary Wollstonecraft)', 'Highlight on page 1 | Location 40-41', 'You will rejoice to hear that no disaster has accompanied the commencement of an enterprise'),
+    clip('Frankenstein; Or, The Modern Prometheus (Shelley, Mary Wollstonecraft)', 'Highlight on page 1 | Location 44-45', 'I am already far north of London'),
+    clip('Frankenstein; Or, The Modern Prometheus (Shelley, Mary Wollstonecraft)', 'Note on page 1 | Location 45', 'Walton is very far from home.'),
+    clip('Frankenstein; Or, The Modern Prometheus (Shelley, Mary Wollstonecraft)', 'Bookmark on page 2 | Location 50', ''),
+    clip('A Book Not Here (Nobody)', 'Highlight on Location 10-12', 'Nothing to see.'),
+  ].join(''));
+  const before = await page.evaluate(() => app.library.records.find((r) => r.title.startsWith('Frankenstein')).annotations.length);
+  await (await page.$('input.hidden-file')).uploadFile(join(clipDir, 'My Clippings.txt'));
+  check('clippings add highlights', await waitFor((n) => app.library.records.find((r) => r.title.startsWith('Frankenstein')).annotations.length === n + 2, 30000, before));
+  const kin = await page.evaluate(() => {
+    const a = app.library.records.find((r) => r.title.startsWith('Frankenstein')).annotations.find((x) => x.quote.startsWith('I am already'));
+    return { note: a.note, chapter: a.chapter, spine: a.spineIndex, toast: document.querySelector('.toast').textContent };
+  });
+  check('notes attach and chapters are found', kin.note === 'Walton is very far from home.' && /letter/i.test(kin.chapter) && kin.spine > 0, JSON.stringify(kin));
+  await page.evaluate(() => { document.querySelector('.toast').textContent = ''; });
+  await (await page.$('input.hidden-file')).uploadFile(join(clipDir, 'My Clippings.txt'));
+  check('importing again adds nothing', await waitFor(() => /No new highlights/.test(document.querySelector('.toast')?.textContent || '')) &&
+    await page.evaluate((n) => app.library.records.find((r) => r.title.startsWith('Frankenstein')).annotations.length === n + 2, before));
+
   console.log('Other formats');
-  // each fixture is converted to EPUB on import; Kindle files need a real book, so they're tested by hand
+  // each fixture is converted to EPUB on import; Kindle files need a real book, so they're tested by hand.
+  // They're added as a folder, the way "Add a folder" does it.
   const fixtures = await formatFixtures();
-  await (await page.$('input.hidden-file')).uploadFile(...fixtures.map((f) => f.path));
+  await (await page.$$('input.hidden-file'))[1].uploadFile(join(tmpdir(), 'folio-fixtures'));
   check('all formats import', await waitFor((n) => app.library.records.length === 2 + n, 60000, fixtures.length),
     await page.evaluate(() => app.library.records.length - 2) + ' of ' + fixtures.length);
   for (const f of fixtures) {
@@ -251,6 +308,7 @@ process.exit(failures ? 1 : 0);
 /* Small books in every non-EPUB format the importer converts, written to a temp folder. */
 async function formatFixtures() {
   const dir = join(tmpdir(), 'folio-fixtures');
+  rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
   const para = (n) => `Paragraph ${n} carries enough words to wrap across several lines of the page, so the converter has to join them back together into one flowing paragraph of text.`;
   const out = [];

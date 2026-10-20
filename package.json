@@ -85,8 +85,12 @@
     ],
     "win": {
       "target": [
-        "nsis"
+        "nsis",
+        "portable"
       ]
+    },
+    "portable": {
+      "artifactName": "Folio-Portable-${version}.${ext}"
     },
     "nsis": {
       "oneClick": false,

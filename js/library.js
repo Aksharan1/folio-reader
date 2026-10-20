@@ -4,6 +4,14 @@
 
 const PREFS_KEY = 'folio.prefs.v1';
 
+/* epub.js keeps loading the contents after `opened` resolves; destroying a book before that
+   finishes makes it throw, so wait for it */
+function discardBook(book) {
+  Promise.resolve(book.loaded && book.loaded.navigation).catch(() => {}).then(() => {
+    try { book.destroy(); } catch (e) {}
+  });
+}
+
 function defaultPrefs() {
   return {
     uiTheme: 'midnight',   // app colours; a TONES id, set from the Settings page
@@ -12,6 +20,7 @@ function defaultPrefs() {
     animate: true,         // page-turn animation
     showProgress: true,    // bottom progress bar in the reader
     autoHide: false,       // fade reader toolbars while reading
+    twoPages: true,        // two pages side by side on wide windows
   };
 }
 
@@ -145,7 +154,7 @@ class Library {
 
     const dupe = this.records.find((r) => r.title === title && r.author === author && r.size === ab.byteLength);
     if (dupe) {
-      try { book.destroy(); } catch (e) {}
+      discardBook(book);
       return { rec: dupe, duplicate: true };
     }
 
@@ -180,7 +189,7 @@ class Library {
     await this.put('books', rec, id);
     this.records.push(rec);
     this.byId.set(id, rec);
-    try { book.destroy(); } catch (e) {}
+    discardBook(book);
     return { rec, duplicate: false };
   }
 

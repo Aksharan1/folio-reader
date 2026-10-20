@@ -8,10 +8,11 @@ No accounts, no uploads. Your books, progress and highlights stay on your device
 ## Features
 
 - **Reads most e-book formats**: EPUB, Kindle (MOBI, AZW, AZW3), PDF, FB2, Word (DOCX), HTML, Markdown and plain text. See [Supported formats](#supported-formats).
-- **Library**: grid and list layouts, filters (reading, unread, finished), sorting, instant search, favourites, and a browsable author index. Books without cover art get a generated cover.
-- **Distraction-free reader**: paginated pages that break between lines, so no line appears twice. A page-turn animation (can be switched off), click or keyboard navigation, and a progress scrubber.
+- **Library**: grid and list layouts, filters (reading, unread, finished), sorting, instant search, favourites, and a browsable author index. Books without cover art get a generated cover. Add books one at a time or a whole folder (subfolders included).
+- **Distraction-free reader**: paginated pages that break between lines, so no line appears twice. Two pages side by side when the window is wide, like an open book (can be switched off). A page-turn animation, click or keyboard navigation, and a progress scrubber.
 - **Appearance**: five themes (Paper, Sepia, Dusk, Midnight, Black), brightness, 11 fonts, text size, line spacing, margins and alignment, with a live preview.
-- **Highlights & notes**: select text to highlight it in one of five colours, attach notes, and copy passages. Everything is collected per book and across your library.
+- **Highlights & notes**: select text to highlight it in one of five colours, attach notes, and copy passages. Everything is collected per book and across your library, and can be exported as Markdown.
+- **Kindle highlights**: import your Kindle's `My Clippings.txt` to bring its highlights and notes over to the same books in Folio.
 - **Bookmarks**: one keypress saves the page you're on.
 - **Full-text search**: finds every match in the book with context, and takes you to the exact occurrence.
 - **Reading Now**: pick up where you left off, with time spent and an estimate of the time left.
@@ -44,7 +45,9 @@ npm start            # run the app from source
 npm run dist         # build the installer: dist/Folio-Setup-<version>.exe
 ```
 
-The installer adds Folio to the Start menu, and registers it for EPUB, Kindle and FB2 files, so double-clicking a book (or **Open with → Folio**) opens it straight into the reader. **Ctrl O** adds books, **F11** toggles full screen, and **Alt** shows the menu bar. Window size and position are remembered between launches. Your library is stored in `%APPDATA%\Folio`.
+The installer adds Folio to the Start menu, and registers it for EPUB, Kindle and FB2 files, so double-clicking a book (or **Open with → Folio**) opens it straight into the reader. **Ctrl O** adds books, **Ctrl Shift O** adds a folder, **F11** toggles full screen, and **Alt** shows the menu bar. Window size and position are remembered between launches. Your library is stored in `%APPDATA%\Folio`.
+
+`npm run dist` also builds `dist/Folio-Portable-<version>.exe`, which runs without installing and keeps its library in a `Folio Data` folder next to the .exe, so you can carry it on a USB stick. It starts a little slower than the installed app because it unpacks itself on each launch.
 
 The installer isn't code-signed, so Windows SmartScreen may warn the first time you run it: choose **More info → Run anyway**.
 
@@ -92,6 +95,7 @@ js/
   convert.js          converts MOBI/AZW3, PDF, FB2, DOCX, HTML, Markdown and text to EPUB
   reader.js           rendering engine: themes, pagination, search, annotations
   library.js          IndexedDB storage, preferences, library queries
+  clippings.js        imports Kindle highlights from My Clippings.txt
   app.js              UI: library views, reader chrome, panels, keyboard
 electron/
   main.js             desktop shell: window, menu, app:// protocol, .epub file opening

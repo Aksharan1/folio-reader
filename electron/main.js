@@ -1,10 +1,13 @@
 // Desktop shell: `npm start` (dev) or `npm run dist` (Windows installer)
 // Serves the app from a private app:// origin so fetch() and IndexedDB work as they would on a website.
-const { app, BrowserWindow, Menu, protocol, net, shell, ipcMain } = require('electron');
+const { app, BrowserWindow, Menu, protocol, net, shell, ipcMain, dialog } = require('electron');
 const { readFile, writeFile } = require('node:fs/promises');
 const { existsSync } = require('node:fs');
 const { basename, join, normalize, resolve, sep } = require('node:path');
 const { pathToFileURL } = require('node:url');
+
+// The portable build keeps its library in a folder next to the .exe, so it can live on a USB stick.
+if (process.env.PORTABLE_EXECUTABLE_DIR) app.setPath('userData', join(process.env.PORTABLE_EXECUTABLE_DIR, 'Folio Data'));
 
 const ROOT = resolve(__dirname, '..');
 const ORIGIN = 'app://folio';
@@ -43,6 +46,19 @@ ipcMain.on('renderer-ready', (e) => {
   if (!win || e.sender !== win.webContents) return;
   rendererReady = true;
   flush();
+});
+
+// Exports (highlights as Markdown) go through a Save dialog; resolves to the saved path, or null.
+ipcMain.handle('save-file', async (e, name, text) => {
+  if (!win || e.sender !== win.webContents) return null;
+  const ext = (name.match(/\.(\w+)$/) || [])[1] || 'txt';
+  const res = await dialog.showSaveDialog(win, {
+    defaultPath: join(app.getPath('documents'), basename(name)),
+    filters: [{ name: ext === 'md' ? 'Markdown' : 'Text', extensions: [ext] }],
+  });
+  if (res.canceled || !res.filePath) return null;
+  await writeFile(res.filePath, String(text));
+  return res.filePath;
 });
 
 app.on('second-instance', (e, argv) => {
@@ -111,6 +127,7 @@ function buildMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     { label: 'File', submenu: [
       { label: 'Add Books…', accelerator: 'CmdOrCtrl+O', click: send('add-books') },
+      { label: 'Add Folder…', accelerator: 'CmdOrCtrl+Shift+O', click: send('add-folder') },
       { type: 'separator' },
       { role: 'quit' },
     ] },

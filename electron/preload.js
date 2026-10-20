@@ -10,4 +10,11 @@ contextBridge.exposeInMainWorld('folioDesktop', {
   onAddBooks(cb) {
     ipcRenderer.on('add-books', () => cb());
   },
+  onAddFolder(cb) {
+    ipcRenderer.on('add-folder', () => cb());
+  },
+  // Save dialog for exports; resolves to the chosen path, or null if cancelled.
+  saveFile(name, text) {
+    return ipcRenderer.invoke('save-file', name, text);
+  },
 });

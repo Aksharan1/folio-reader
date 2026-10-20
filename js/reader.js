@@ -68,6 +68,7 @@ class Reader {
     this.record = null;
     this.book = null;
     this.frame = null;
+    this.frame2 = null;            // right-hand page in the two-page view
     this.renderedSection = null;
     this.spineIndex = 0;
     this.htmlCache = new Map();
@@ -90,9 +91,10 @@ class Reader {
     this.record = record;
     this.settings = Object.assign(defaultSettings(), settingsOverride || {});
     if (!TONES[this.settings.tone]) this.settings.tone = defaultSettings().tone;
-    if (this.book) { try { this.book.destroy(); } catch (e) {} }
+    if (this.book) discardBook(this.book);
     this.htmlCache = new Map();
     this.frame = null;
+    this.frame2 = null;
     this.renderedSection = null;
     this.lastSelection = '';
     this.mark('data');
@@ -153,7 +155,10 @@ class Reader {
     return best ? best.label : 'Beginning';
   }
 
-  buildFrameHtml(spineIndex, frac, query, nth) {
+  /* side: 'single', or 'left' / 'right' in the two-page view. Only the left page positions
+     itself; the app scrolls the right one to the page after it. */
+  buildFrameHtml(spineIndex, frac, query, nth, side = 'single') {
+    const lead = side !== 'right';
     const s = this.settings;
     const tone = TONES[s.tone];
     const bg = tone.bg(s.brightness);
@@ -174,9 +179,10 @@ class Reader {
     const hl = (this.record.annotations || []).filter(a => a.spineIndex === spineIndex && a.quote);
     const data = {
       highlights: hl.map(a => ({ q: a.quote, c: (HL_COLORS[a.color] || HL_COLORS.yellow).fill })),
-      scrollTo: query || null,
+      scrollTo: lead && query || null,
       scrollNth: nth || 0,
-      frac: (frac === null || frac === undefined) ? null : frac,
+      frac: !lead || frac === null || frac === undefined ? null : frac,
+      side,
       dbg: (typeof window !== 'undefined' && window.__erDebug) ? 1 : 0,
     };
     /* tint search hits on the page they land on */
@@ -415,7 +421,9 @@ try{
       if (Math.abs(ev.clientX - erDown.x) > 10 || Math.abs(ev.clientY - erDown.y) > 10) { erDown = null; return; }
       var erW = window.innerWidth;
       var erDir = 0;
-      if (ev.clientX > erW * 0.72) erDir = 1;
+      if (d.side === 'left') { if (ev.clientX < erW * 0.24) erDir = -1; }
+      else if (d.side === 'right') { if (ev.clientX > erW * 0.76) erDir = 1; }
+      else if (ev.clientX > erW * 0.72) erDir = 1;
       else if (ev.clientX < erW * 0.12) erDir = -1;
       erDown = null;
       if (ev.target && ev.target.closest && ev.target.closest('a')) return;
@@ -462,8 +470,10 @@ try{
     const book = this.book;
     if (spineIndex < 0 || spineIndex >= book.spine.length) return;
 
+    const spread = this.wantSpread();
+
     /* same section, no search jump: scroll the live frame, never rebuild it */
-    if (this.frame && this.renderedSection === spineIndex && !query && this.doc()) {
+    if (this.frame && this.renderedSection === spineIndex && !query && this.doc() && spread === !!this.frame2) {
       this.spineIndex = spineIndex;
       const d = this.doc();
       const tops = this.pageTops();
@@ -471,6 +481,7 @@ try{
         const idx = Math.max(0, Math.min(tops.length - 1, Math.round(frac * (tops.length - 1))));
         d.scrollingElement.scrollTop = tops[idx];
       }
+      this.syncSpread();
       this.record.pos = { spineIndex, frac: frac === null ? 0 : frac };
       if (this.library) {
         this.library.touch(this.record.id);
@@ -488,18 +499,27 @@ try{
       this.htmlCache.set(spineIndex, html);
     }
 
-    const frame = document.createElement('iframe');
-    frame.className = 'er-frame';
-    frame.title = 'Book page';
-    frame.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-popups');
-    const loaded = new Promise((res) => { frame.addEventListener('load', res); });
-    frame.srcdoc = this.buildFrameHtml(spineIndex, frac, query, nth);
-    if (this.flipDir && !this.animateOff()) {
-      const sign = this.flipDir > 0 ? 1 : -1;
-      frame.style.transformOrigin = this.flipDir > 0 ? '0% 50%' : '100% 50%';
-      frame.style.transform = 'rotateY(' + (sign * 68) + 'deg)';
-      frame.style.opacity = '0.18';
-    }
+    const make = (side) => {
+      const f = document.createElement('iframe');
+      f.className = 'er-frame' + (side === 'right' ? ' er-right' : '');
+      f.title = side === 'right' ? 'Book page (right)' : 'Book page';
+      f.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-popups');
+      f.loaded = new Promise((res) => { f.addEventListener('load', res); });
+      f.srcdoc = this.buildFrameHtml(spineIndex, frac, query, nth, side);
+      if (this.flipDir && !this.animateOff()) {
+        if (spread) {
+          f.style.opacity = '0.3';
+        } else {
+          const sign = this.flipDir > 0 ? 1 : -1;
+          f.style.transformOrigin = this.flipDir > 0 ? '0% 50%' : '100% 50%';
+          f.style.transform = 'rotateY(' + (sign * 68) + 'deg)';
+          f.style.opacity = '0.18';
+        }
+      }
+      return f;
+    };
+    const frame = make(spread ? 'left' : 'single');
+    const right = spread ? make('right') : null;
 
     let stage = document.querySelector('.read-stage');
     if (!stage) {
@@ -509,21 +529,56 @@ try{
       if (!read) { read = document.createElement('div'); read.className = 'screen-read'; document.body.appendChild(read); }
       read.appendChild(stage);
     }
+    stage.classList.toggle('spread', spread);
     /* keep the old page on screen until the new one has laid out: no blank flash */
-    const old = this.frame;
-    if (old) frame.style.visibility = 'hidden';
-    stage.appendChild(frame);
+    const olds = this.pages();
+    for (const f of [frame, right]) {
+      if (!f) continue;
+      if (olds.length) f.style.visibility = 'hidden';
+      stage.appendChild(f);
+    }
     this.frame = frame;
+    this.frame2 = right;
     this.renderedSection = spineIndex;
     this.record.pos = { spineIndex, frac: frac === null ? 0 : frac };
     if (this.library) {
       this.library.touch(this.record.id);
       this.library.saveRecord(this.record);
     }
-    await loaded;
+    await Promise.all([frame.loaded, right && right.loaded]);
+    this.syncSpread();
     frame.style.visibility = '';
-    if (old && old.parentNode) old.parentNode.removeChild(old);
+    if (right) right.style.visibility = '';
+    for (const f of olds) if (f.parentNode) f.parentNode.removeChild(f);
     this.updateMask();
+  }
+
+  /* the page frames on screen: one, or two side by side */
+  pages() { return [this.frame, this.frame2].filter(Boolean); }
+
+  /* two pages side by side when the window is wide: landscape, with room for two columns */
+  wantSpread() {
+    if (this.library && this.library.prefs.twoPages === false) return false;
+    const stage = document.querySelector('.read-stage');
+    const w = stage ? stage.clientWidth : window.innerWidth;
+    const h = stage ? stage.clientHeight : window.innerHeight;
+    return w >= 1100 && w >= h * 1.4;
+  }
+
+  /* two-page view: the left page always shows an even page of the section, the right one
+     the page after it, or nothing at the end of a section */
+  syncSpread() {
+    const right = this.frame2;
+    const d = this.doc();
+    const rd = right && right.contentDocument;
+    if (!d || !rd || !rd.scrollingElement) return;
+    const tops = this.pageTops();
+    let { pi } = this.pageIndex();
+    if (pi % 2) d.scrollingElement.scrollTop = tops[--pi];
+    const rtops = this.pageTops(rd);
+    const has = pi + 1 < rtops.length;
+    right.classList.toggle('er-blank', !has);
+    if (has) rd.scrollingElement.scrollTop = rtops[pi + 1];
   }
 
   /* Pages are cut at block boundaries, so the bottom of the viewport can show the start of
@@ -531,18 +586,30 @@ try{
   updateMask() {
     const stage = this.frame && this.frame.parentNode;
     if (!stage) return;
-    let m = stage.querySelector('.page-mask');
-    if (!m) { m = document.createElement('div'); m.className = 'page-mask'; stage.appendChild(m); }
-    const d = this.doc();
-    let px = 0;
-    if (d && d.scrollingElement) {
-      const cur = d.scrollingElement.scrollTop;
-      const vh = d.defaultView.innerHeight;
-      const next = this.pageTops().find((t) => t > cur + 4);
-      if (next !== undefined && vh > 0) px = Math.max(0, vh - (next - cur)) * (this.frame.clientHeight / vh);
+    const frames = this.pages();
+    const masks = [...stage.querySelectorAll('.page-mask')];
+    while (masks.length < frames.length) {
+      const m = document.createElement('div');
+      m.className = 'page-mask';
+      stage.appendChild(m);
+      masks.push(m);
     }
-    m.style.height = Math.round(px) + 'px';
-    m.style.opacity = this.flipping ? '0' : '1';
+    masks.slice(frames.length).forEach((m) => m.remove());
+    frames.forEach((f, k) => {
+      const m = masks[k];
+      const d = f.contentDocument;
+      let px = 0;
+      if (d && d.scrollingElement && !f.classList.contains('er-blank')) {
+        const cur = d.scrollingElement.scrollTop;
+        const vh = d.defaultView.innerHeight;
+        const next = this.pageTops(d).find((t) => t > cur + 4);
+        if (next !== undefined && vh > 0) px = Math.max(0, vh - (next - cur)) * (f.clientHeight / vh);
+      }
+      m.style.left = f.offsetLeft + 'px';
+      m.style.width = f.offsetWidth + 'px';
+      m.style.height = Math.round(px) + 'px';
+      m.style.opacity = this.flipping ? '0' : '1';
+    });
   }
 
   /* rebuild the current page (after a settings or highlight change), keeping the position */
@@ -574,16 +641,17 @@ try{
     let pi = 0;
     for (let i = 0; i < tops.length; i++) if (tops[i] <= se.scrollTop + 4) pi = i;
     const page = pi + 1;
+    const lastPage = this.frame2 && !this.frame2.classList.contains('er-blank') ? Math.min(pages, page + 1) : page;
     const frac = pages > 1 ? pi / (pages - 1) : 0;
     this.record.pos = { spineIndex: this.spineIndex, frac };
     let chars = 0;
     for (let i = 0; i < this.spineIndex; i++) chars += this.lens[i];
     chars += this.lens[this.spineIndex] * frac;
     /* the last page of the last section counts as finished */
-    const atEnd = this.spineIndex === this.lens.length - 1 && page === pages;
+    const atEnd = this.spineIndex === this.lens.length - 1 && lastPage === pages;
     const pct = atEnd ? 100 : Math.min(100, Math.round((chars / this.totalLen) * 100));
     this.record.pct = pct;
-    return { page, pages, pct, chars, chapter: this.chapterName(this.spineIndex) };
+    return { page, lastPage, pages, pct, chars, chapter: this.chapterName(this.spineIndex) };
   }
 
   /* which page of the current section is showing (0-based) and how many there are */
@@ -607,8 +675,7 @@ try{
     return target;
   }
 
-  pageTops() {
-    const d = this.doc();
+  pageTops(d = this.doc()) {
     const t = d && d.__erTops;
     if (Array.isArray(t) && t.length) return t;
     const se = d && d.scrollingElement;
@@ -646,8 +713,13 @@ try{
       return;
     }
     this.flipping = true;
-    const mask = f.parentNode && f.parentNode.querySelector('.page-mask');
-    if (mask) mask.style.opacity = '0';
+    if (f.parentNode) f.parentNode.querySelectorAll('.page-mask').forEach((m) => { m.style.opacity = '0'; });
+    /* two pages at once fade across rather than swing */
+    if (this.frame2) {
+      for (const p of this.pages()) { p.style.transition = 'opacity 140ms ease-in'; p.style.opacity = '0.3'; }
+      await this.sleep(140);
+      return;
+    }
     const sign = dir > 0 ? -1 : 1;
     f.style.transformOrigin = dir > 0 ? '0% 50%' : '100% 50%';
     f.style.transition = 'transform 250ms cubic-bezier(.36,.06,.55,.95), opacity 250ms ease-in';
@@ -665,6 +737,16 @@ try{
     if (this.animateOff()) {
       f.style.transform = ''; f.style.opacity = ''; f.style.transition = '';
       if (sh) sh.style.opacity = '0';
+      return;
+    }
+    if (this.frame2) {
+      const ps = this.pages();
+      for (const p of ps) { p.style.transition = 'none'; p.style.opacity = '0.3'; }
+      await this.sleep(20);
+      for (const p of ps) { p.style.transition = 'opacity 200ms ease-out'; p.style.opacity = '1'; }
+      await this.sleep(200);
+      for (const p of ps) { p.style.transition = ''; p.style.opacity = ''; }
+      this.flipping = false;
       return;
     }
     const sign = dir > 0 ? 1 : -1;
@@ -688,19 +770,14 @@ try{
   async nextPage() {
     const tops = this.pageTops();
     const se = this.doc().scrollingElement;
-    const cur = se.scrollTop;
     const maxTop = Math.max(0, se.scrollHeight - this.viewH());
+    const to = this.pageIndex().pi + (this.frame2 ? 2 : 1);
     await this.flipOut(1);
-    let moved = false;
-    for (let i = 0; i < tops.length; i++) {
-      if (tops[i] > cur + 8) {
-        se.scrollTop = tops[i];
-        this.record.frac = maxTop ? tops[i] / maxTop : 0;
-        moved = true;
-        break;
-      }
-    }
-    if (!moved) {
+    if (to < tops.length) {
+      se.scrollTop = tops[to];
+      this.record.frac = maxTop ? tops[to] / maxTop : 0;
+      this.syncSpread();
+    } else {
       if (this.spineIndex + 1 < this.book.spine.length) await this.renderSection(this.spineIndex + 1, 0);
       else if (window.app) window.app.toast('You have reached the end of the book');
     }
@@ -717,19 +794,15 @@ try{
   async prevPage() {
     const tops = this.pageTops();
     const se = this.doc().scrollingElement;
-    const cur = se.scrollTop;
     const maxTop = Math.max(0, se.scrollHeight - this.viewH());
+    const { pi } = this.pageIndex();
+    const to = Math.max(0, pi - (this.frame2 ? 2 : 1));
     await this.flipOut(-1);
-    let moved = false;
-    for (let i = tops.length - 1; i >= 0; i--) {
-      if (tops[i] < cur - 8) {
-        se.scrollTop = tops[i];
-        this.record.frac = maxTop ? tops[i] / maxTop : 0;
-        moved = true;
-        break;
-      }
-    }
-    if (!moved) {
+    if (pi > 0) {
+      se.scrollTop = tops[to];
+      this.record.frac = maxTop ? tops[to] / maxTop : 0;
+      this.syncSpread();
+    } else {
       if (this.spineIndex > 0) await this.renderSection(this.spineIndex - 1, 1);
       else if (window.app) window.app.toast('You are at the beginning of the book');
     }
