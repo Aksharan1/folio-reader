@@ -3,7 +3,8 @@
 // Set SHOTS=<dir> to save screenshots of each step.
 import puppeteer from 'puppeteer';
 import JSZip from 'jszip';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { startServer } from '../scripts/serve.mjs';
 
@@ -198,6 +199,29 @@ try {
   });
   check('page follows the theme', styled.body === 'rgb(23, 26, 39)' && styled.wrap === 'rgba(0, 0, 0, 0)' && styled.p === 'rgb(212, 215, 227)', JSON.stringify(styled));
 
+  console.log('Other formats');
+  // each fixture is converted to EPUB on import; Kindle files need a real book, so they're tested by hand
+  const fixtures = await formatFixtures(browser);
+  await (await page.$('input.hidden-file')).uploadFile(...fixtures.map((f) => f.path));
+  check('all formats import', await waitFor((n) => app.library.records.length === 2 + n, 60000, fixtures.length),
+    await page.evaluate(() => app.library.records.length - 2) + ' of ' + fixtures.length);
+  for (const f of fixtures) {
+    const got = await page.evaluate(async (title) => {
+      const rec = app.library.records.find((r) => r.title === title);
+      if (!rec) return null;
+      await app.openBook(rec);
+      const text = [...app.reader.htmlCache.values()].join(' ').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
+      return { author: rec.author, format: rec.format, toc: app.reader.toc.map((t) => t.label), sections: rec.chapters, text, cover: !!rec.cover };
+    }, f.title);
+    await frameReady();
+    const ok = got && got.format === f.format && got.author === (f.author || '') && f.phrases.every((p) => got.text.includes(p)) &&
+      f.toc.every((t) => got.toc.includes(t)) && (!f.cover || got.cover);
+    check(f.format + ' converts', ok, got ? `${got.sections} sections · contents: ${got.toc.join(' / ')}` : 'missing');
+  }
+  await page.click('.rd-left .icon-btn');
+  await page.evaluate(() => app.importFiles([new File(['not a pdf'], 'broken.pdf')]));
+  check('unreadable file reports an error', await waitFor(() => /couldn’t be read/.test(document.querySelector('.toast')?.textContent || '')));
+
   const appErrors = await page.evaluate(() => window.__errors);
   check('no runtime errors', !appErrors.length && !consoleErrors.length, [...appErrors, ...consoleErrors].join(' | ') || 'none');
 } catch (e) {
@@ -210,3 +234,52 @@ try {
 
 console.log(failures ? `\n${failures} check(s) failed` : '\nAll checks passed');
 process.exit(failures ? 1 : 0);
+
+/* Small books in every non-EPUB format the importer converts, written to a temp folder. */
+async function formatFixtures(browser) {
+  const dir = join(tmpdir(), 'folio-fixtures');
+  mkdirSync(dir, { recursive: true });
+  const para = (n) => `Paragraph ${n} carries enough words to wrap across several lines of the page, so the converter has to join them back together into one flowing paragraph of text.`;
+  const out = [];
+  const add = (file, data, f) => { writeFileSync(join(dir, file), data); out.push({ path: join(dir, file), ...f }); };
+
+  add('plain-tale.txt',
+    ['CHAPTER I.', '', 'It was a dark and stormy night;\nthe rain fell in torrents.', '', 'CHAPTER II.', '', 'Morning came\nat last.', '', 'CHAPTER III.', '', 'The end.'].join('\n'),
+    { title: 'plain-tale', format: 'Text', toc: ['CHAPTER I.', 'CHAPTER III.'], phrases: ['It was a dark and stormy night; the rain fell in torrents.'] });
+
+  add('notes.md', '# Markdown Book\n\nIntro with **bold** text.\n\n## First\n\nOne.\n\n## Second\n\n- apple\n- pear\n',
+    { title: 'Markdown Book', format: 'Markdown', toc: ['First', 'Second'], phrases: ['Intro with bold text.', 'pear'] });
+
+  add('page.html', '<!doctype html><html><head><title>Web Page Book</title><meta name="author" content="Ada Web"></head><body><h1>Part A</h1><p>Alpha text.</p><h1>Part B</h1><p>Beta text.</p><script>bad()</script></body></html>',
+    { title: 'Web Page Book', author: 'Ada Web', format: 'HTML', toc: ['Part A', 'Part B'], phrases: ['Alpha text.', 'Beta text.'] });
+
+  const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+  add('tale.fb2', `<?xml version="1.0" encoding="utf-8"?>
+<FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0" xmlns:l="http://www.w3.org/1999/xlink">
+<description><title-info><author><first-name>Fyodor</first-name><last-name>Testov</last-name></author><book-title>Fiction Book Tale</book-title><lang>en</lang><coverpage><image l:href="#cover.png"/></coverpage></title-info></description>
+<body><title><p>Fiction Book Tale</p></title>
+<section><title><p>Opening</p></title><p>First <emphasis>chapter</emphasis> text.<a l:href="#n1" type="note">1</a></p></section>
+<section><title><p>Closing</p></title><poem><stanza><v>A line of verse</v></stanza></poem></section></body>
+<body name="notes"><section id="n1"><p>The footnote.</p></section></body>
+<binary id="cover.png" content-type="image/png">${png}</binary>
+</FictionBook>`, { title: 'Fiction Book Tale', author: 'Fyodor Testov', format: 'FB2', toc: ['Opening', 'Closing', 'Notes'], phrases: ['First chapter text.', 'A line of verse', 'The footnote.'], cover: true });
+
+  const W = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"';
+  const p = (text, style) => `<w:p>${style ? `<w:pPr><w:pStyle w:val="${style}"/></w:pPr>` : ''}<w:r><w:t xml:space="preserve">${text}</w:t></w:r></w:p>`;
+  const docx = new JSZip();
+  docx.file('[Content_Types].xml', '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>');
+  docx.file('word/styles.xml', `<?xml version="1.0"?><w:styles ${W}><w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/></w:style></w:styles>`);
+  docx.file('docProps/core.xml', '<?xml version="1.0"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>Word Document Book</dc:title><dc:creator>Wendy Word</dc:creator></cp:coreProperties>');
+  docx.file('word/document.xml', `<?xml version="1.0"?><w:document ${W}><w:body>${p('Chapter One', 'Heading1')}${p('Some words')}<w:p><w:r><w:rPr><w:b/></w:rPr><w:t>Bold run.</w:t></w:r></w:p>${p('Chapter Two', 'Heading1')}${p('More words.')}</w:body></w:document>`);
+  add('report.docx', await docx.generateAsync({ type: 'nodebuffer' }),
+    { title: 'Word Document Book', author: 'Wendy Word', format: 'DOCX', toc: ['Chapter One', 'Chapter Two'], phrases: ['Some words', 'Bold run.', 'More words.'] });
+
+  const pg = await browser.newPage();
+  const chapter = (t, n) => `<h1>${t}</h1>${[1, 2, 3].map((i) => `<p>${para(n * 10 + i)}</p>`).join('')}`;
+  await pg.setContent(`<html><head><title>Portable Document Book</title><style>body{font:16px serif;width:420px}h1{font-size:30px;break-before:page}</style></head>
+    <body>${chapter('Departure', 1)}${chapter('Arrival', 2)}${chapter('Return', 3)}</body></html>`);
+  add('document.pdf', await pg.pdf({ format: 'A5', outline: true, tagged: true, displayHeaderFooter: true, headerTemplate: '<span></span>', footerTemplate: '<div style="font-size:9px;width:100%;text-align:center"><span class="pageNumber"></span></div>' }),
+    { title: 'Portable Document Book', format: 'PDF', toc: ['Departure', 'Arrival', 'Return'], phrases: [para(11), para(33)], cover: true });
+  await pg.close();
+  return out;
+}

@@ -237,7 +237,7 @@ class App {
 
   buildShell() {
     this.fileInput = h('input.hidden-file', {
-      type: 'file', accept: '.epub,application/epub+zip', multiple: true, tabindex: '-1', 'aria-hidden': 'true',
+      type: 'file', accept: BOOK_ACCEPT, multiple: true, tabindex: '-1', 'aria-hidden': 'true',
       onchange: () => { this.importFiles(this.fileInput.files); this.fileInput.value = ''; },
     });
 
@@ -266,7 +266,7 @@ class App {
 
     this.shell = h('div.shell', this.sidebar, h('main.main', this.topbar, this.content));
     this.readScreen = h('div.screen-read');
-    this.dropOverlay = h('div.drop-overlay', h('div.drop-card', icon('upload', 34), h('div.drop-title', 'Drop to add to your library'), h('div.drop-sub', 'EPUB files only')));
+    this.dropOverlay = h('div.drop-overlay', h('div.drop-card', icon('upload', 34), h('div.drop-title', 'Drop to add to your library'), h('div.drop-sub', 'EPUB, Kindle (MOBI, AZW3), PDF, FB2, Word, HTML, Markdown and text')));
     const scrim = h('div.nav-scrim', { onclick: () => document.body.classList.remove('nav-open') });
     document.body.append(this.shell, scrim, this.fileInput, this.readScreen, this.dropOverlay);
   }
@@ -394,12 +394,12 @@ class App {
 
     if (!this.library.records.length) {
       root.appendChild(this.emptyState('library', 'Your library is empty',
-        'Add EPUB files to start reading. Books, progress and highlights stay on this device.',
+        'Add EPUB, Kindle, PDF, FB2, Word or text files to start reading. Books, progress and highlights stay on this device.',
         [
           h('button.btn.btn-primary', { type: 'button', onclick: () => this.fileInput.click() }, icon('plus', 16), 'Add Books'),
           h('button.btn', { type: 'button', onclick: () => this.importSample() }, icon('reading', 16), 'Try a sample book'),
         ]));
-      root.appendChild(h('p.drop-hint', 'Tip: you can also drag .epub files anywhere onto this window.'));
+      root.appendChild(h('p.drop-hint', 'Tip: you can also drag books anywhere onto this window.'));
       return root;
     }
     if (!list.length) {
@@ -972,28 +972,29 @@ class App {
 
   async importFiles(fileList) {
     const all = Array.from(fileList || []);
-    const files = all.filter((f) => /\.epub$/i.test(f.name) || f.type === 'application/epub+zip');
+    const files = all.filter((f) => bookFormat(f.name) || f.type === 'application/epub+zip');
     if (!files.length) {
-      if (all.length) this.toast('Only .epub files are supported', 'info');
+      if (all.length) this.toast('That file type isn’t supported', 'info');
       return;
     }
-    let added = 0, dupes = 0, failed = 0, last = null, latest = null;
+    let added = 0, dupes = 0, failed = 0, last = null, latest = null, reason = '';
     for (let i = 0; i < files.length; i++) {
-      this.toast(files.length > 1 ? `Importing ${i + 1} of ${files.length}…` : 'Importing ' + files[i].name.replace(/\.epub$/i, '') + '…', 'spin', true);
+      this.toast(files.length > 1 ? `Importing ${i + 1} of ${files.length}…` : 'Importing ' + bookBaseName(files[i].name) + '…', 'spin', true);
       try {
         const res = await this.library.add(files[i]);
         latest = res.rec;
         if (res.duplicate) dupes++; else { added++; last = res.rec; }
       } catch (e) {
         failed++;
-        console.error('import failed: ' + (e && e.message ? e.message : e));
+        if (e && e.friendly) reason = e.message;
+        else console.error('import failed: ' + (e && e.message ? e.message : e));
       }
     }
     const parts = [];
     if (added === 1 && last) parts.push(`Added “${last.title}”`);
     else if (added) parts.push(`Added ${added} books`);
     if (dupes) parts.push(dupes + ' already in library');
-    if (failed) parts.push(failed + ' couldn’t be read');
+    if (failed) parts.push(failed === 1 && reason ? reason : failed + ' couldn’t be read');
     this.toast(parts.join(' · ') || 'Nothing imported', failed && !added ? 'info' : 'check');
     if (added && this.view !== 'library' && this.view !== 'favourites') this.view = 'library';
     this.renderLibrary();
@@ -1002,7 +1003,7 @@ class App {
 
   // Desktop app: books opened from Explorer. A single book opens straight into the reader.
   async openExternal(list) {
-    const files = list.map((f) => new File([f.data], f.name, { type: 'application/epub+zip' }));
+    const files = list.map((f) => new File([f.data], f.name));
     const rec = await this.importFiles(files);
     if (rec && files.length === 1) this.openBook(rec);
   }
@@ -1036,6 +1037,7 @@ class App {
       ['Sections', String(rec.chapters || '—')],
       ['Added', fmtAgo(rec.added)],
       ['Last opened', fmtAgo(rec.lastOpened)],
+      ['Format', rec.format && rec.format !== 'EPUB' ? rec.format + ' (converted to EPUB)' : 'EPUB'],
       ['File size', fmtSize(rec.size)],
     ];
     this.openModal({

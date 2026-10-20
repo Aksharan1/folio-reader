@@ -99,6 +99,8 @@ class Reader {
     const timed = new Promise((r) => { setTimeout(() => r(new Error('epub open timeout')), 30000); });
     const opened = await Promise.race([book.opened, timed]);
     if (opened instanceof Error) throw opened;
+    // the contents load separately from the package; small books can open before they're ready
+    try { await book.loaded.navigation; } catch (e) {}
     this.mark('opened');
 
     // Table of contents flattened with spine indexes

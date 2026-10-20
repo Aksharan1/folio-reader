@@ -110,7 +110,8 @@ class Library {
   /* ---------- import ---------- */
 
   async add(file) {
-    return this.addBytes(file.name, await this.readBytes(file));
+    const { bytes, format } = await convertToEpub(file.name, await this.readBytes(file));
+    return this.addBytes(file.name, bytes, format);
   }
 
   async readBytes(file) {
@@ -130,7 +131,7 @@ class Library {
   }
 
   /* resolves to { rec, duplicate } */
-  async addBytes(name, bytes) {
+  async addBytes(name, bytes, format = 'EPUB') {
     const ab = bytes instanceof Uint8Array ? bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) : bytes;
     const book = new ePub(ab);
     await book.opened;
@@ -138,7 +139,7 @@ class Library {
     let title = '', author = '';
     try {
       const meta = book.packaging && book.packaging.metadata ? book.packaging.metadata : null;
-      title = String(meta && meta.title ? meta.title : (name || 'Untitled').replace(/\.epub$/i, '')).replace(/\s+/g, ' ').trim();
+      title = String(meta && meta.title ? meta.title : bookBaseName(name)).replace(/\s+/g, ' ').trim();
       author = String(meta && meta.creator ? meta.creator : '').replace(/\s+/g, ' ').trim();
     } catch (e) {}
 
@@ -173,6 +174,7 @@ class Library {
       chapters: book.spine.length,
       cover: coverBlob,
       size: ab.byteLength,
+      format,
     };
     await this.put('data', ab, id);
     await this.put('books', rec, id);

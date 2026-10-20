@@ -1,12 +1,13 @@
 # Folio
 
-**A fast, private EPUB reader for Windows and the browser.**
+**A fast, private e-book reader for Windows and the browser.**
 No accounts, no uploads, no build step. Your books, progress and highlights stay on your device.
 
 ![Folio library](docs/screenshots/library.png)
 
 ## Features
 
+- **Reads most e-book formats**: EPUB, Kindle (MOBI, AZW, AZW3), PDF, FB2, Word (DOCX), HTML, Markdown and plain text. See [Supported formats](#supported-formats).
 - **Library**: grid and list layouts, filters (reading, unread, finished), sorting, instant search, favourites, and a browsable author index. Books without cover art get a generated cover.
 - **Distraction-free reader**: paginated pages that break between lines, so no line appears twice. A page-turn animation (can be switched off), click or keyboard navigation, and a progress scrubber.
 - **Appearance**: five themes (Paper, Sepia, Dusk, Midnight, Black), brightness, 11 fonts, text size, line spacing, margins and alignment, with a live preview.
@@ -41,7 +42,7 @@ npm run app          # run the desktop app from source
 npm run dist         # build the installer: dist/Folio-Setup-<version>.exe
 ```
 
-The installer adds Folio to the Start menu, and registers it for `.epub` files, so double-clicking a book (or **Open with → Folio**) opens it straight into the reader. **Ctrl O** adds books, **F11** toggles full screen, and **Alt** shows the menu bar. Window size and position are remembered between launches. Your library is stored in `%APPDATA%\Folio`.
+The installer adds Folio to the Start menu, and registers it for EPUB, Kindle and FB2 files, so double-clicking a book (or **Open with → Folio**) opens it straight into the reader. **Ctrl O** adds books, **F11** toggles full screen, and **Alt** shows the menu bar. Window size and position are remembered between launches. Your library is stored in `%APPDATA%\Folio`.
 
 The installer isn't code-signed, so Windows SmartScreen may warn the first time you run it: choose **More info → Run anyway**.
 
@@ -57,7 +58,22 @@ npm start            # serves the app at http://localhost:8080
 
 `npm start` only needs Node.js 18+. No `npm install` is required to run the app. You can also open `index.html` directly from disk. Everything works that way except the bundled **Try a sample book** button, because browsers block `fetch` on `file://` pages.
 
-Add books with **Add Books**, or drag `.epub` files onto the window.
+Add books with **Add Books**, or drag them onto the window.
+
+## Supported formats
+
+Folio's reader works with EPUB. Other formats are converted to EPUB when you add them, in the browser, so search, highlights, bookmarks and progress work the same for every book. The original file isn't kept.
+
+| Format | Notes |
+| --- | --- |
+| EPUB | Opened as-is. |
+| MOBI, AZW, AZW3, PRC | Kindle books, both the old MOBI and the newer KF8 (AZW3) format, with images, styles and the table of contents. DRM-protected books and KFX files can't be opened. Parsed with [foliate-js](https://github.com/johnfactotum/foliate-js). |
+| PDF | The text is extracted and reflowed into paragraphs, so it adapts to your font and theme settings. Headers, footers and page numbers are removed, and the PDF's outline becomes the contents. Images, tables and complex layouts (maths, multi-column figures) don't come through, and scanned PDFs without a text layer can't be read. Uses [pdf.js](https://mozilla.github.io/pdf.js/). |
+| FB2, FBZ, FB2.ZIP | FictionBook, including cover, images, poems, epigraphs and footnotes. |
+| DOCX | Word documents: headings (which become chapters), bold, italic, lists, tables, links and images. |
+| HTML, HTM, XHTML | Split into chapters at `<h1>`/`<h2>` headings. Embedded (`data:`) images are kept, and scripts and external files are dropped. |
+| MD, Markdown | Headings, emphasis, lists, quotes, code and links. |
+| TXT | Paragraphs are rejoined, and chapter headings such as "Chapter IV" or "Part Two" become the contents. |
 
 ## Keyboard shortcuts
 
@@ -83,6 +99,7 @@ index.html            entry point
 app.css               design tokens, layout and components
 js/
   dom.js              tiny DOM helper, icon set, generated covers, formatters
+  convert.js          converts MOBI/AZW3, PDF, FB2, DOCX, HTML, Markdown and text to EPUB
   reader.js           rendering engine: themes, pagination, search, annotations
   library.js          IndexedDB storage, preferences, library queries
   app.js              UI: library views, reader chrome, panels, keyboard
@@ -90,7 +107,7 @@ electron/
   main.js             desktop shell: window, menu, app:// protocol, .epub file opening
   preload.js          bridge exposing file-open events to the app
 build/icon.png        app icon (npm run icon regenerates it from the favicon)
-vendor/               epub.js and JSZip (pre-built, loaded with <script>)
+vendor/               epub.js, JSZip, pdf.js and foliate-js's MOBI parser (pre-built)
 samples/              a public-domain sample book
 scripts/serve.mjs     zero-dependency static server (npm start)
 scripts/screenshots.mjs  regenerates the README screenshots
@@ -117,6 +134,7 @@ Folio has been developed and tested in Chromium-based browsers. It relies on mod
 ## Credits
 
 - [epub.js](https://github.com/futurepress/epub.js) (BSD-2-Clause) and [JSZip](https://stuk.github.io/jszip/) (MIT) do the EPUB parsing.
+- [pdf.js](https://github.com/mozilla/pdf.js) (Apache-2.0) reads PDFs, and [foliate-js](https://github.com/johnfactotum/foliate-js) (MIT) reads Kindle books.
 - The sample book, *Frankenstein* by Mary Wollstonecraft Shelley, comes from [Project Gutenberg](https://www.gutenberg.org/ebooks/84).
 - The other titles in the README screenshots are tiny demo files built by `scripts/screenshots.mjs` from public-domain opening lines.
 

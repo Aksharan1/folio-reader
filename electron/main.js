@@ -20,9 +20,11 @@ let win = null;
 let rendererReady = false;
 let pending = [];
 
-/* ---------- opening .epub files from Explorer / the command line ---------- */
+/* ---------- opening books from Explorer / the command line ---------- */
 
-const epubArgs = (argv) => argv.filter((a) => /\.epub$/i.test(a) && existsSync(a));
+// keep in step with FORMAT_OF in js/convert.js
+const BOOK_RE = /\.(epub|mobi|prc|azw3?|kf8|fb2|fbz|fb2\.zip|pdf|docx|html?|xhtml|md|markdown|txt)$/i;
+const bookArgs = (argv) => argv.filter((a) => BOOK_RE.test(a) && existsSync(a));
 
 async function queueFiles(paths) {
   for (const p of paths) {
@@ -48,7 +50,7 @@ app.on('second-instance', (e, argv) => {
     if (win.isMinimized()) win.restore();
     win.focus();
   }
-  queueFiles(epubArgs(argv));
+  queueFiles(bookArgs(argv));
 });
 
 /* ---------- window ---------- */
@@ -138,7 +140,7 @@ app.whenReady().then(() => {
   });
   buildMenu();
   createWindow();
-  queueFiles(epubArgs(process.argv.slice(1)));
+  queueFiles(bookArgs(process.argv.slice(1)));
 });
 
 app.on('window-all-closed', () => app.quit());
