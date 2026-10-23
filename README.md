@@ -16,7 +16,7 @@ No account, no cloud, no tracking.
 
 <img src="docs/screenshots/hero.png" alt="Frankenstein open in two-page view on a sepia page, with a manga open in front of it, read right to left">
 
-**[Download](#download)** · [Features](#features) · [Manga and comics](#manga-and-comics) · [Formats](#supported-formats) · [Shortcuts](#keyboard-shortcuts) · [Build from source](#building-from-source)
+**[⬇ Download for Windows, Mac or Linux](#download)** · [Features](#features) · [Manga and comics](#manga-and-comics) · [Formats](#supported-formats) · [Shortcuts](#keyboard-shortcuts) · [Build from source](#building-from-source)
 
 </div>
 
@@ -29,21 +29,29 @@ No account, no cloud, no tracking.
 
 ## Download
 
-Get the latest version from the **[Releases page](https://github.com/Aksharan1/folio-reader/releases/latest)**.
+Pick your computer. One file, then one step.
 
-| System | File | Notes |
-| --- | --- | --- |
-| **Windows 10 and 11** | `Folio-Setup-<version>.exe` | Installs Folio, adds it to the Start menu, and opens your books with a double-click. |
-| | `Folio-Portable-<version>.exe` | Runs without installing. Keeps its library in a `Folio Data` folder next to the .exe, so it can live on a USB stick. |
-| **macOS 12 or newer** | `Folio-<version>-mac-arm64.dmg` | Apple silicon (M1 and later). |
-| | `Folio-<version>-mac-x64.dmg` | Intel Macs. |
-| **Linux** | `Folio-<version>-linux-x86_64.AppImage` | Runs on most distributions: make it executable, then open it. |
-| | `Folio-<version>-linux-amd64.deb` | Debian, Ubuntu and Mint: `sudo apt install ./Folio-*.deb` |
+<p align="center">
+  <a href="https://github.com/Aksharan1/folio-reader/releases/latest/download/Folio-Setup-Windows.exe"><img src="https://img.shields.io/badge/Download_for_Windows-b5652f?style=for-the-badge" alt="Download for Windows" height="40"></a>
+  &nbsp;
+  <a href="https://github.com/Aksharan1/folio-reader/releases/latest/download/Folio-macOS.dmg"><img src="https://img.shields.io/badge/Download_for_Mac-b5652f?style=for-the-badge" alt="Download for Mac" height="40"></a>
+  &nbsp;
+  <a href="https://github.com/Aksharan1/folio-reader/releases/latest/download/Folio-Linux.deb"><img src="https://img.shields.io/badge/Download_for_Linux-b5652f?style=for-the-badge" alt="Download for Linux" height="40"></a>
+</p>
 
-The builds aren't signed by Microsoft or notarised by Apple yet, so the first launch needs one extra step:
+| Your computer | Then |
+| --- | --- |
+| **Windows 10 or 11** | Double-click **Folio-Setup-Windows.exe**. Folio installs and opens by itself, with a shortcut on your desktop and in the Start menu. |
+| **Mac** (Apple silicon or Intel, macOS 12 or newer) | Open **Folio-macOS.dmg** and drag Folio into Applications. Then open it from Launchpad. |
+| **Ubuntu, Debian, Mint** | Double-click **Folio-Linux.deb** to install it with your software centre, then find Folio in your apps. |
+| **Other Linux** | Download **[Folio-Linux.AppImage](https://github.com/Aksharan1/folio-reader/releases/latest/download/Folio-Linux.AppImage)**, allow it to run as a program (right-click → Properties), then double-click it. |
 
-- **Windows:** if SmartScreen warns you, choose **More info → Run anyway**.
-- **macOS:** drag Folio to Applications and open it. If macOS says it can't check the app, go to **System Settings → Privacy & Security** and choose **Open Anyway**.
+Folio isn't signed by Microsoft or Apple yet, so the very first launch asks once:
+
+- **Windows:** if SmartScreen appears, choose **More info → Run anyway**.
+- **Mac:** if macOS says it can't check Folio, open **System Settings → Privacy & Security** and choose **Open Anyway**.
+
+Want it on a USB stick? **[Folio-Portable-Windows.exe](https://github.com/Aksharan1/folio-reader/releases/latest/download/Folio-Portable-Windows.exe)** runs without installing and keeps its library in a `Folio Data` folder beside it. Every version is on the [Releases page](https://github.com/Aksharan1/folio-reader/releases).
 
 ## Features
 
@@ -175,7 +183,7 @@ npm test             # end-to-end test: opens the app and drives it for a couple
 npm run dist         # build installers for the system you're on, into dist/
 ```
 
-`npm run dist` makes the Windows installer and portable app on Windows, the two DMGs on a Mac, and the AppImage and .deb on Linux. Pushing a version tag (`git tag v1.2.0 && git push --tags`) has GitHub Actions build all of them and publish a release.
+`npm run dist` makes the Windows installer and portable app on Windows, the DMG on a Mac, and the AppImage and .deb on Linux. Pushing a version tag (`git tag v1.2.0 && git push --tags`) has GitHub Actions build all of them and publish a release.
 
 If `npm start` reports that Electron failed to install, run `node node_modules/electron/install.js` once. On Linux without a display (CI), run the tests with `xvfb-run -a npm test`.
 
@@ -185,6 +193,7 @@ Other scripts:
 npm run screenshots  # rebuild docs/screenshots (looks up one word on Wiktionary)
 npm run vendor       # refresh vendor/ from node_modules after updating epub.js, JSZip, pdf.js, foliate-js or node-unrar-js
 npm run icon         # redraw build/icon.png from the favicon in index.html
+npm run dmg-background  # redraw the Mac disk image window (build/dmg-background*.png)
 ```
 
 Set `SHOTS=some/folder` when running `npm test` to save a screenshot of every step.

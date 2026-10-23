@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.1
+
+### Changed
+- One download per computer, with names that don't change between versions: Folio-Setup-Windows.exe, Folio-macOS.dmg, Folio-Linux.deb and Folio-Linux.AppImage.
+- The Windows installer is one click: it installs Folio for you without questions, adds desktop and Start menu shortcuts, and opens it.
+- One Mac download works on both Apple silicon and Intel, and its window shows where to drag Folio.
+- Each release page starts with which file to download and what to do with it.
+
 ## 1.2.0
 
 ### Added

@@ -1,7 +1,7 @@
 {
   "name": "folio-reader",
   "productName": "Folio",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "A fast, private e-book and manga reader for Windows, macOS and Linux. EPUB, Kindle, PDF, comics (CBZ, CBR), FB2, Word, Markdown and text.",
   "author": "Aksharan",
   "homepage": "https://github.com/Aksharan1/folio-reader#readme",
@@ -41,7 +41,8 @@
     "test": "node tests/smoke.mjs",
     "screenshots": "node scripts/screenshots.mjs",
     "vendor": "node scripts/vendor.mjs",
-    "icon": "node scripts/icon.mjs"
+    "icon": "node scripts/icon.mjs",
+    "dmg-background": "node scripts/dmg-background.mjs"
   },
   "devDependencies": {
     "electron": "^44.9.1",
@@ -111,12 +112,17 @@
       }
     ],
     "portable": {
-      "artifactName": "Folio-Portable-${version}.${ext}"
+      "artifactName": "Folio-Portable-Windows.${ext}"
     },
     "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "artifactName": "Folio-Setup-${version}.${ext}"
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Folio",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "Folio-Setup-Windows.${ext}"
     },
     "mac": {
       "category": "public.app-category.books",
@@ -124,17 +130,35 @@
         {
           "target": "dmg",
           "arch": [
-            "arm64",
-            "x64"
+            "universal"
           ]
         }
       ],
       "identity": "-",
       "hardenedRuntime": false,
-      "artifactName": "Folio-${version}-mac-${arch}.${ext}"
+      "artifactName": "Folio-macOS.${ext}"
     },
     "dmg": {
-      "title": "Folio ${version}"
+      "title": "Folio",
+      "background": "build/dmg-background.png",
+      "iconSize": 112,
+      "window": {
+        "width": 600,
+        "height": 400
+      },
+      "contents": [
+        {
+          "x": 150,
+          "y": 200,
+          "type": "file"
+        },
+        {
+          "x": 450,
+          "y": 200,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
     },
     "linux": {
       "category": "Office",
@@ -144,7 +168,7 @@
         "AppImage",
         "deb"
       ],
-      "artifactName": "Folio-${version}-linux-${arch}.${ext}",
+      "artifactName": "Folio-Linux.${ext}",
       "mimeTypes": [
         "application/epub+zip",
         "application/x-mobipocket-ebook",

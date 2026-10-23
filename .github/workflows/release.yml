@@ -32,6 +32,36 @@ jobs:
       - if: runner.os != 'Linux'
         run: npm test
       - run: npm run dist -- --publish never
+      # install each package the way a user would, and check Folio lands where it should
+      - name: Install check (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Start-Process dist\Folio-Setup-Windows.exe -ArgumentList '/S' -Wait
+          $exe = Join-Path $env:LOCALAPPDATA 'Programs\Folio\Folio.exe'
+          if (-not (Test-Path $exe)) { throw "Folio.exe was not installed" }
+          $menu = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Folio.lnk'
+          if (-not (Test-Path $menu)) { throw "no Start menu shortcut" }
+          Get-Process Folio -ErrorAction SilentlyContinue | Stop-Process -Force
+          Write-Host "installed: $exe"
+      - name: Install check (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          hdiutil attach dist/Folio-macOS.dmg -nobrowse -mountpoint /tmp/folio-dmg
+          ls /tmp/folio-dmg
+          lipo -archs /tmp/folio-dmg/Folio.app/Contents/MacOS/Folio | tee /tmp/archs
+          grep -q x86_64 /tmp/archs && grep -q arm64 /tmp/archs
+          codesign --verify --deep /tmp/folio-dmg/Folio.app
+          test -L /tmp/folio-dmg/Applications
+          hdiutil detach /tmp/folio-dmg
+      - name: Install check (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get install -y ./dist/Folio-Linux.deb
+          test -x /opt/Folio/folio-reader || test -x /opt/Folio/folio
+          ls /usr/share/applications | grep -i folio
+          chmod +x dist/Folio-Linux.AppImage
+          (cd /tmp && "$GITHUB_WORKSPACE/dist/Folio-Linux.AppImage" --appimage-extract > /dev/null && test -d squashfs-root)
       - uses: actions/upload-artifact@v4
         with:
           name: folio-${{ runner.os }}
@@ -57,7 +87,26 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           version="${GITHUB_REF_NAME#v}"
-          # the release notes are this version's section of CHANGELOG.md
-          awk -v v="## $version" '$0 == v {on=1; next} /^## / && on {exit} on' CHANGELOG.md > notes.md
-          [ -s notes.md ] || echo "See CHANGELOG.md" > notes.md
+          # the notes start with which file to pick, then this version's section of CHANGELOG.md
+          base="https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME"
+          cat > notes.md <<EOF
+          ## Download
+
+          Pick the one file for your computer:
+
+          | Your computer | Download | Then |
+          | --- | --- | --- |
+          | **Windows 10 or 11** | **[Folio-Setup-Windows.exe]($base/Folio-Setup-Windows.exe)** | Double-click it. Folio installs and opens, with a shortcut on your desktop and in the Start menu. |
+          | **Mac** (Apple silicon or Intel) | **[Folio-macOS.dmg]($base/Folio-macOS.dmg)** | Open it and drag Folio into Applications. |
+          | **Ubuntu, Debian, Mint** | **[Folio-Linux.deb]($base/Folio-Linux.deb)** | Double-click it to install with your software centre. |
+          | **Other Linux** | [Folio-Linux.AppImage]($base/Folio-Linux.AppImage) | Allow it to run as a program (right-click → Properties), then double-click it. |
+
+          Want Folio on a USB stick instead? [Folio-Portable-Windows.exe]($base/Folio-Portable-Windows.exe) runs without installing.
+
+          First launch: Windows SmartScreen may ask, choose **More info → Run anyway**. On a Mac, if it says it can't check Folio, open **System Settings → Privacy & Security** and choose **Open Anyway**.
+
+          ## What's new
+
+          EOF
+          awk -v v="## $version" '$0 == v {on=1; next} /^## / && on {exit} on' CHANGELOG.md >> notes.md
           gh release create "$GITHUB_REF_NAME" files/* --title "Folio $version" --notes-file notes.md
