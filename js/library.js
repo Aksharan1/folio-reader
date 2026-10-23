@@ -24,6 +24,7 @@ function defaultPrefs() {
     twoPages: true,        // two pages side by side on wide windows
     ttsVoice: '',          // read-aloud voice name; empty picks one for the book's language
     ttsRate: 1,            // read-aloud speed
+    welcomed: false,       // the first-run welcome has been seen
   };
 }
 

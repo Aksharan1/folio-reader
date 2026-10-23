@@ -53,6 +53,17 @@ Folio isn't signed by Microsoft or Apple yet, so the very first launch asks once
 
 Want it on a USB stick? **[Folio-Portable-Windows.exe](https://github.com/Aksharan1/folio-reader/releases/latest/download/Folio-Portable-Windows.exe)** runs without installing and keeps its library in a `Folio Data` folder beside it. Every version is on the [Releases page](https://github.com/Aksharan1/folio-reader/releases).
 
+### First launch
+
+Folio opens on a short welcome: its book swings open, you pick the page you like to read on and watch the whole app change to it, then bring in your books, a whole folder, or a free classic to start with.
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/welcome.png" alt="The welcome screen: Folio's book icon, open, above 'Welcome to Folio'"></td>
+    <td width="50%"><img src="docs/screenshots/welcome-themes.png" alt="Choosing a page theme on the welcome, with Sepia selected"></td>
+  </tr>
+</table>
+
 ## Features
 
 <img src="docs/screenshots/reader-sepia.png" alt="Two pages of Frankenstein on a sepia page, with a highlighted passage">

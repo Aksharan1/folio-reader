@@ -845,6 +845,175 @@ body.reading .toast { bottom: 72px; }
 .sel-btn:hover { background: var(--surface-3); }
 
 /* =========================================================
+   Welcome — first run: the icon's book opens, a theme, books
+   ========================================================= */
+
+.welcome {
+  position: fixed; inset: 0; z-index: 350; overflow: hidden;
+  display: grid; place-items: center;
+  background: var(--bg); color: var(--ink);
+  transition: opacity .6s ease, transform .7s cubic-bezier(.2, .8, .2, 1);
+}
+.welcome.leaving { opacity: 0; transform: scale(1.04); pointer-events: none; }
+body.welcomed-in .shell { animation: wl-settle .8s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes wl-settle { from { opacity: 0; transform: scale(.985); } to { opacity: 1; transform: none; } }
+/* no title bar: the top strip moves the window */
+.wl-drag { position: absolute; top: 0; left: 0; right: 0; height: 56px; -webkit-app-region: drag; }
+
+/* two soft pools of the theme's accent, drifting slowly behind everything */
+.wl-glow {
+  position: absolute; width: 64vmax; height: 64vmax; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, var(--accent) 0%, transparent 62%); opacity: .14; filter: blur(30px);
+}
+.wl-glow-a { left: -20vmax; top: -26vmax; animation: wl-drift 22s ease-in-out infinite alternate; }
+.wl-glow-b { right: -24vmax; bottom: -30vmax; opacity: .1; animation: wl-drift 27s ease-in-out infinite alternate-reverse; }
+@keyframes wl-drift { to { transform: translate(7vmax, 5vmax) scale(1.12); } }
+
+/* steps slide and blur past each other */
+.wl-steps { position: relative; width: min(780px, 92vw); height: min(580px, 84vh); }
+.wl-step {
+  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 14px; text-align: center; pointer-events: none;
+  opacity: 0; transform: translateX(56px); filter: blur(8px);
+  transition: opacity .5s ease, transform .7s cubic-bezier(.2, .8, .2, 1), filter .5s ease;
+}
+.wl-step.before { transform: translateX(-56px); }
+.wl-step.on { opacity: 1; transform: none; filter: none; pointer-events: auto; }
+.wl-step.on .wl-rise { animation: wl-rise .75s cubic-bezier(.2, .8, .2, 1) var(--d, 0s) both; }
+@keyframes wl-rise { from { opacity: 0; transform: translateY(16px); filter: blur(5px); } to { opacity: 1; transform: none; filter: none; } }
+
+.wl-title { margin: 6px 0 0; font-size: 42px; font-weight: 700; letter-spacing: -.025em; line-height: 1.1; }
+.wl-heading { margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -.02em; }
+.wl-lead { margin: 0; max-width: 480px; font-size: 16px; line-height: 1.6; color: var(--ink-2); text-wrap: balance; }
+.wl-actions { display: flex; gap: 10px; margin-top: 14px; }
+
+/* the call to action: a light sweeps across it on hover */
+.wl-cta { position: relative; overflow: hidden; gap: 8px; padding: 0 26px; }
+.wl-cta::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, .35) 50%, transparent 70%);
+  transform: translateX(-120%); transition: transform .8s ease;
+}
+.wl-cta:hover::after { transform: translateX(120%); }
+.wl-cta .ic { transition: transform .25s cubic-bezier(.2, .8, .2, 1); }
+.wl-cta:hover .ic:last-child { transform: translateX(3px); }
+
+/* the app icon comes alive: the tile pops in, its book swings open, the ribbon drops, a light passes */
+.wl-mark { position: relative; margin-bottom: 18px; }
+.wl-book {
+  position: relative; width: 168px; height: 168px; border-radius: 38px;
+  background: linear-gradient(135deg, #f8ead0, #ddb27a);
+  box-shadow: 0 0 0 1px rgba(138, 90, 46, .2), 0 30px 60px -20px rgba(70, 40, 10, .55), 0 10px 20px -10px rgba(70, 40, 10, .4);
+  display: flex; justify-content: center; align-items: center; perspective: 700px;
+  animation: wl-tile .8s cubic-bezier(.2, 1.25, .4, 1) both;
+}
+/* the light moves through the background, so the tile's rounded corners keep it in */
+.wl-book::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(115deg, transparent 40%, rgba(255, 255, 255, .55) 50%, transparent 60%) no-repeat;
+  background-size: 300% 100%; background-position: 100% 0; animation: wl-shine 1.2s ease-in-out 1.35s both;
+}
+.wl-book-glow {
+  position: absolute; inset: -60px; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, var(--accent-glow) 0%, transparent 65%);
+  animation: wl-pulse 4s ease-in-out 1.2s infinite;
+}
+.wl-page { width: 60px; height: 117px; transform-style: preserve-3d; }
+.wl-page svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.wl-page-left { fill: #a8693a; transform-origin: right center; animation: wl-open-left 1.15s cubic-bezier(.2, .8, .2, 1) .35s both; }
+.wl-page-right { fill: #6b3f1d; transform-origin: left center; animation: wl-open-right 1.15s cubic-bezier(.2, .8, .2, 1) .45s both; }
+.wl-ribbon {
+  position: absolute; left: 111px; top: 29px; width: 14px; height: 45px; background: #c8452f;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 84%, 0 100%); transform-origin: top;
+  animation: wl-ribbon .75s cubic-bezier(.3, 1.5, .5, 1) 1.15s both;
+}
+@keyframes wl-tile { from { opacity: 0; transform: scale(.6) rotate(-8deg); } to { opacity: 1; transform: none; } }
+@keyframes wl-open-left { from { opacity: 0; transform: rotateY(88deg); } 25% { opacity: 1; } to { transform: none; } }
+@keyframes wl-open-right { from { opacity: 0; transform: rotateY(-88deg); } 25% { opacity: 1; } to { transform: none; } }
+@keyframes wl-ribbon { from { transform: scaleY(0); } to { transform: none; } }
+@keyframes wl-shine { from { background-position: 100% 0; } to { background-position: 0 0; } }
+@keyframes wl-pulse { 50% { transform: scale(1.12); opacity: .7; } }
+
+/* theme cards: a little page in each theme; the chosen one lifts and gets a check */
+.wl-themes { display: flex; flex-wrap: wrap; justify-content: center; gap: 16px; margin: 20px 0 6px; }
+.wl-theme {
+  display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 0;
+  border: 0; background: none; color: var(--ink-3); font: 500 13px var(--font-ui); cursor: pointer;
+}
+.wl-step.on .wl-theme { animation: wl-rise .7s cubic-bezier(.2, .8, .2, 1) calc(.14s + var(--i) * .06s) both; }
+.wl-theme-page {
+  position: relative; width: 104px; height: 138px; padding: 16px 14px; border-radius: 12px;
+  display: flex; flex-direction: column; gap: 12px; text-align: left;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .14), 0 12px 26px -10px rgba(0, 0, 0, .45);
+  transition: transform .35s cubic-bezier(.2, .8, .2, 1), box-shadow .35s;
+}
+.wl-theme:hover .wl-theme-page { transform: translateY(-5px); }
+.wl-theme.on .wl-theme-page { transform: translateY(-8px); box-shadow: 0 0 0 2.5px var(--accent), 0 20px 36px -12px rgba(0, 0, 0, .5); }
+.wl-theme.on .wl-theme-name { color: var(--ink); font-weight: 600; }
+.wl-theme-aa { font: 600 26px/1 var(--font-serif); }
+.wl-theme-lines { display: flex; flex-direction: column; gap: 8px; }
+.wl-theme-lines i { height: 3px; border-radius: 2px; opacity: .3; }
+.wl-theme-lines i:nth-child(2) { width: 86%; }
+.wl-theme-lines i:nth-child(4) { width: 62%; }
+.wl-theme-check {
+  position: absolute; top: 8px; right: 8px; width: 22px; height: 22px; border-radius: 50%;
+  display: grid; place-items: center; background: var(--accent); color: var(--on-accent);
+  transform: scale(0); transition: transform .4s cubic-bezier(.3, 1.6, .5, 1);
+}
+.wl-theme.on .wl-theme-check { transform: scale(1); }
+/* the app changes theme under a slower crossfade than the browser's default */
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: .4s; animation-timing-function: ease; }
+
+/* books: a drop zone, the formats, and the ways in */
+.wl-drop {
+  width: min(520px, 100%); margin-top: 12px; padding: 30px 20px;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  border: 2px dashed var(--accent-line); border-radius: 18px; background: var(--surface); color: var(--ink);
+  cursor: pointer; transition: transform .3s cubic-bezier(.2, .8, .2, 1), background .3s, border-color .3s;
+}
+.wl-drop:hover { transform: translateY(-3px); background: var(--surface-2); border-color: var(--accent); }
+.wl-drop-ic { color: var(--accent-2); animation: wl-bob 2.6s ease-in-out infinite; }
+.wl-drop-title { font-size: 15px; font-weight: 600; }
+.wl-drop-sub { font-size: 13px; color: var(--ink-3); }
+@keyframes wl-bob { 50% { transform: translateY(-6px); } }
+.wl-formats { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; max-width: 620px; margin: 4px 0; }
+.wl-chip {
+  padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line);
+  background: var(--surface-2); color: var(--ink-2); font-size: 12px; font-weight: 600;
+}
+.wl-step.on .wl-chip { animation: wl-chip .55s cubic-bezier(.3, 1.4, .5, 1) calc(.28s + var(--i) * .045s) both; }
+@keyframes wl-chip { from { opacity: 0; transform: translateY(10px) scale(.85); } to { opacity: 1; transform: none; } }
+.wl-link {
+  margin-top: 4px; padding: 6px 10px; border: 0; background: none; cursor: pointer;
+  color: var(--accent-2); font: 500 13.5px var(--font-ui);
+  text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 4px; transition: text-decoration-color .25s;
+}
+.wl-link:hover { text-decoration-color: currentColor; }
+
+/* progress dots, and a way out */
+.wl-foot { position: absolute; left: 0; right: 0; bottom: 28px; display: flex; justify-content: center; align-items: center; }
+.wl-dots { display: flex; gap: 8px; }
+.wl-dot {
+  width: 8px; height: 8px; padding: 0; border: 0; border-radius: 99px; cursor: pointer;
+  background: var(--line-strong); transition: width .45s cubic-bezier(.2, .8, .2, 1), background .3s;
+}
+.wl-dot.on { width: 28px; background: var(--accent); }
+.wl-skip {
+  position: absolute; right: 28px; padding: 8px 12px; border: 0; border-radius: 8px; cursor: pointer;
+  background: none; color: var(--ink-3); font: 500 13px var(--font-ui); transition: color .2s, background .2s;
+}
+.wl-skip:hover { color: var(--ink); background: var(--surface-2); }
+
+@media (max-width: 680px), (max-height: 620px) {
+  .wl-title { font-size: 32px; }
+  .wl-heading { font-size: 26px; }
+  .wl-mark { zoom: .78; margin-bottom: 4px; }
+  .wl-theme-page { width: 84px; height: 112px; padding: 12px 10px; }
+  .wl-themes { gap: 10px; margin-top: 10px; }
+  .wl-drop { padding: 20px 16px; }
+}
+
+/* =========================================================
    Responsive
    ========================================================= */
 

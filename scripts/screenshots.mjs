@@ -106,6 +106,15 @@ const ready = () => page.waitForFunction(() => {
 const tone = async (id) => { await page.evaluate((id) => app.setReading({ tone: id }), id); await ready(); };
 
 await page.goto('app://folio/index.html', { waitUntil: 'networkidle0' });
+// the first-run welcome, once its book has opened, then its theme step
+await page.waitForSelector('.welcome .wl-step.on .wl-book');
+await sleep(2600);
+await raw('welcome');
+await page.click('.wl-step.on .wl-cta');
+await sleep(1400);
+await raw('welcome-themes');
+await page.evaluate(() => app.welcome.close());
+await sleep(800);
 await page.evaluate(() => { app.toast = () => {}; app.setPref('twoPages', true); app.setAppTheme('sepia'); app.setReading({ font: 'palatino', brightness: 0.5 }); });
 await page.evaluate(() => app.importSample());
 await page.waitForSelector('.book');
@@ -290,7 +299,7 @@ await compose('themes', 1280, 520, `
   </div>`);
 
 // one framed window per feature
-const shots = ['reader-sepia', 'manga', 'comic', 'comic-contents', 'library', 'reading-now', 'appearance', 'search', 'annotations'];
+const shots = ['welcome', 'welcome-themes', 'reader-sepia', 'manga', 'comic', 'comic-contents', 'library', 'reading-now', 'appearance', 'search', 'annotations'];
 if (lookedUp) shots.push('look-up');
 for (const name of shots) {
   await compose(name, 1280, 820, `<img src="${img(name)}" style="${WINDOW}position:absolute;left:24px;top:20px;width:1232px">`);

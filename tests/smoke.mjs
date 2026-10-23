@@ -39,8 +39,24 @@ const frameReady = () => waitFor(() => {
 });
 
 try {
-  console.log('Library');
+  console.log('Welcome');
   await page.goto('app://folio/index.html', { waitUntil: 'networkidle0' });
+  check('a new library opens on the welcome, in Sepia', await waitFor(() => !!document.querySelector('.welcome .wl-step.on .wl-book') && document.documentElement.dataset.theme === 'sepia'));
+  await shot('00-welcome');
+  await page.click('.wl-step.on .wl-cta');
+  check('get started shows the themes', await waitFor(() => document.querySelector('.welcome').dataset.step === '1' && document.querySelectorAll('.wl-step.on .wl-theme').length === 5));
+  // the rest of the test expects the default theme, so pick it here
+  await page.click('.wl-theme[data-theme="midnight"]');
+  check('picking a theme restyles the app', await waitFor(() => !document.documentElement.dataset.theme && document.querySelector('.wl-theme.on')?.dataset.theme === 'midnight'));
+  await sleep(600);   // the page takes no clicks while the theme crossfades
+  await page.click('.wl-step.on .wl-cta');
+  check('continue shows the ways to add books', await waitFor(() => document.querySelector('.welcome').dataset.step === '2' && !!document.querySelector('.wl-step.on .wl-drop')));
+  await page.keyboard.press('Escape');
+  check('escape skips to the library', await waitFor(() => !document.querySelector('.welcome') && app.prefs.welcomed === true));
+  await page.reload({ waitUntil: 'networkidle0' });
+  check('the welcome shows only once', await waitFor(() => !!document.querySelector('.shell')) && await page.evaluate(() => !document.querySelector('.welcome')));
+
+  console.log('Library');
   check('shows empty state', await waitFor(() => document.querySelector('.empty h2')?.textContent.includes('empty')));
   // one page at a time for the reader checks; the two-page view has its own section
   await page.evaluate(() => app.setPref('twoPages', false));

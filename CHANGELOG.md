@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- A welcome on first launch: Folio's book opens, you pick the page theme you like and watch the app change to it, then add books, a folder or a free classic. It shows once, and Escape skips it.
+
+### Changed
+- New readers start in Sepia.
+- The library's empty state and drop overlay mention comics.
+
 ## 1.2.2
 
 ### Changed

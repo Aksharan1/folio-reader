@@ -288,7 +288,7 @@ class App {
 
     this.shell = h('div.shell', this.sidebar, h('main.main', this.topbar, this.content));
     this.readScreen = h('div.screen-read');
-    this.dropOverlay = h('div.drop-overlay', h('div.drop-card', icon('upload', 34), h('div.drop-title', 'Drop books or folders to add them'), h('div.drop-sub', 'EPUB, Kindle (MOBI, AZW3), PDF, FB2, Word, HTML, Markdown and text')));
+    this.dropOverlay = h('div.drop-overlay', h('div.drop-card', icon('upload', 34), h('div.drop-title', 'Drop books or folders to add them'), h('div.drop-sub', 'EPUB, Kindle (MOBI, AZW3), PDF, comics (CBZ, CBR), FB2, Word, HTML, Markdown and text')));
     const scrim = h('div.nav-scrim', { onclick: () => document.body.classList.remove('nav-open') });
     document.body.append(this.shell, scrim, this.fileInput, this.folderInput, this.clippingsInput, this.restoreInput, this.readScreen, this.dropOverlay);
   }
@@ -416,7 +416,7 @@ class App {
 
     if (!this.library.records.length) {
       root.appendChild(this.emptyState('library', 'Your library is empty',
-        'Add EPUB, Kindle, PDF, FB2, Word or text files to start reading. Books, progress and highlights stay on this device.',
+        'Add EPUB, Kindle, PDF, comics, FB2, Word or text files to start reading. Books, progress and highlights stay on this device.',
         [
           h('button.btn.btn-primary', { type: 'button', onclick: () => this.fileInput.click() }, icon('plus', 16), 'Add Books'),
           h('button.btn', { type: 'button', onclick: () => this.importSample() }, icon('reading', 16), 'Try a sample book'),
@@ -1144,6 +1144,7 @@ class App {
     if (dupes) parts.push(dupes + ' already in library');
     if (failed) parts.push(failed === 1 && reason ? reason : failed + ' couldn’t be read');
     this.toast(parts.join(' · ') || 'Nothing imported', failed && !added ? 'info' : 'check');
+    if (added && this.welcome) this.welcome.close();
     if (added && this.view !== 'library' && this.view !== 'favourites') this.view = 'library';
     this.renderLibrary();
     return latest;
@@ -1179,6 +1180,7 @@ class App {
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
       const res = await this.library.addBytes('frankenstein.epub', new Uint8Array(await resp.arrayBuffer()));
       this.toast(res.duplicate ? 'Frankenstein is already in your library' : 'Added “' + res.rec.title + '”', 'check');
+      if (this.welcome) this.welcome.close();
       this.view = 'library';
       this.renderLibrary();
     } catch (e) {
@@ -1229,6 +1231,7 @@ class App {
      ========================================================= */
 
   async openBook(rec, jump) {
+    if (this.welcome) this.welcome.close();
     this.closeMenu();
     this.closeModal();
     this.screen = 'read';
@@ -1801,6 +1804,11 @@ class App {
     const t = e.target;
     const typing = !e.fromFrame && t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
     this.lastActivity = Date.now();
+    // the welcome has the window to itself, apart from adding books (Ctrl O)
+    if (this.welcome && this.welcome.el && !this.modalEl) {
+      if (!ctrl) this.welcome.key(e);
+      return;
+    }
 
     if (k === 'Escape') {
       if (this.closeMenu() || this.closeModal()) return;
@@ -1916,6 +1924,16 @@ class App {
     await this.library.init();
     this.reader.settings = Object.assign({}, this.library.settings);
     this.renderLibrary();
+    // a new library opens on the welcome; one that already has books has no need of it
+    this.welcome = new Welcome(this);
+    if (!this.prefs.welcomed) {
+      if (this.library.records.length) this.setPref('welcomed', true);
+      else {
+        // new readers start on Sepia, Folio's own look; the welcome lets them pick another
+        this.setAppTheme('sepia');
+        this.welcome.open();
+      }
+    }
 
     window.addEventListener('keydown', (e) => this.key(e));
     window.addEventListener('mousedown', (e) => this.pointerDown(e));
