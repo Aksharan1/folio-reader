@@ -145,7 +145,8 @@
         "samples/**",
         "electron/**",
         "!node_modules/onnxruntime-node/bin/napi-v3/{win32,linux}/**"
-      ]
+      ],
+      "x64ArchFiles": "Contents/Resources/app.asar.unpacked/node_modules/onnxruntime-node/bin/napi-v3/darwin/**"
     },
     "dmg": {
       "title": "Folio",
