@@ -38,7 +38,8 @@ jobs:
         shell: pwsh
         run: |
           Start-Process dist\Folio-Setup-Windows.exe -ArgumentList '/S' -Wait
-          $exe = Join-Path $env:LOCALAPPDATA 'Programs\Folio\Folio.exe'
+          # one-click installs go in the user's Programs folder, under the package name
+          $exe = Join-Path $env:LOCALAPPDATA 'Programs\folio-reader\Folio.exe'
           if (-not (Test-Path $exe)) { throw "Folio.exe was not installed" }
           $menu = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Folio.lnk'
           if (-not (Test-Path $menu)) { throw "no Start menu shortcut" }
