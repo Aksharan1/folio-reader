@@ -280,8 +280,8 @@ ${R} body{background:${bg} !important;color:${fg} !important;margin:0;padding:0;
 img.er-pic{display:block;margin:0 auto;${fitWidth ? 'width:100%;height:auto;' : 'max-width:100%;max-height:100vh;width:auto;height:auto;object-fit:contain;'}user-select:none;-webkit-user-drag:none;}
 `;
     const css = this.comic ? comicCss : `
-${R}{background:${bg} !important;zoom:${s.fontSize / 100};scrollbar-width:none;}
-${R} body{background:${bg} !important;color:${fg} !important;max-width:${m.width};margin:0 auto;padding:${m.vert}px min(${m.side}px, 6vw);}
+${R}{background:${bg} !important;zoom:${s.fontSize / 100};scrollbar-width:none;margin:0 !important;padding:0 !important;}
+${R} body{background:${bg} !important;color:${fg} !important;box-sizing:content-box !important;width:auto !important;max-width:${m.width} !important;margin:0 auto !important;padding:${m.vert}px min(${m.side}px, 6vw) !important;float:none !important;position:static !important;}
 ${R} body *:not(mark){color:inherit !important;background-color:transparent !important;}
 ${R} body a, ${R} body a *{color:${link} !important;}
 img{max-width:100%;height:auto;}
@@ -754,21 +754,10 @@ try{
   }
 
   /* Pages are cut at block boundaries, so the bottom of the viewport can show the start of
-     the block the next page opens with. Cover that strip so nothing appears twice. */
+     the block the next page opens with. Clip that strip off the frame so nothing appears twice.
+     The clip belongs to the frame, so it turns with the page instead of uncovering the strip. */
   updateMask() {
-    const stage = this.frame && this.frame.parentNode;
-    if (!stage) return;
-    const frames = this.pages();
-    const masks = [...stage.querySelectorAll('.page-mask')];
-    while (masks.length < frames.length) {
-      const m = document.createElement('div');
-      m.className = 'page-mask';
-      stage.appendChild(m);
-      masks.push(m);
-    }
-    masks.slice(frames.length).forEach((m) => m.remove());
-    frames.forEach((f, k) => {
-      const m = masks[k];
+    for (const f of this.pages()) {
       const d = f.contentDocument;
       let px = 0;
       if (d && d.scrollingElement && !f.classList.contains('er-blank')) {
@@ -777,11 +766,8 @@ try{
         const next = this.pageTops(d).find((t) => t > cur + 4);
         if (next !== undefined && vh > 0) px = Math.max(0, vh - (next - cur)) * (f.clientHeight / vh);
       }
-      m.style.left = f.offsetLeft + 'px';
-      m.style.width = f.offsetWidth + 'px';
-      m.style.height = Math.round(px) + 'px';
-      m.style.opacity = this.flipping ? '0' : '1';
-    });
+      f.style.clipPath = px >= 1 ? `inset(0 0 ${Math.round(px)}px 0)` : '';
+    }
   }
 
   /* rebuild the current page (after a settings or highlight change), keeping the position */
@@ -896,7 +882,6 @@ try{
       return;
     }
     this.flipping = true;
-    if (f.parentNode) f.parentNode.querySelectorAll('.page-mask').forEach((m) => { m.style.opacity = '0'; });
     /* two pages at once fade across rather than swing */
     if (this.frame2) {
       for (const p of this.pages()) { p.style.transition = 'opacity 140ms ease-in'; p.style.opacity = '0.3'; }
@@ -970,7 +955,7 @@ try{
     }
     const side = this.rtl ? -dir : dir;
     await this.flipOut(side);
-    if (within) this.doc().scrollingElement.scrollTop = tops[pi + dir];
+    if (within) { this.doc().scrollingElement.scrollTop = tops[pi + dir]; this.updateMask(); }
     else await this.renderSection(target, dir > 0 ? 0 : 1);
     await this.flipIn(side);
     this.flipping = false;
@@ -993,6 +978,7 @@ try{
       se.scrollTop = tops[to];
       this.record.frac = maxTop ? tops[to] / maxTop : 0;
       this.syncSpread();
+      this.updateMask();
     } else {
       if (this.spineIndex + 1 < this.book.spine.length) await this.renderSection(this.spineIndex + 1, 0);
       else if (window.app) window.app.toast('You have reached the end of the book');
@@ -1019,6 +1005,7 @@ try{
       se.scrollTop = tops[to];
       this.record.frac = maxTop ? tops[to] / maxTop : 0;
       this.syncSpread();
+      this.updateMask();
     } else {
       if (this.spineIndex > 0) await this.renderSection(this.spineIndex - 1, 1);
       else if (window.app) window.app.toast('You are at the beginning of the book');

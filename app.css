@@ -669,7 +669,6 @@ body.reading .toast { bottom: 72px; }
   position: absolute; inset: 0; pointer-events: none; opacity: 0;
   background: linear-gradient(90deg, rgba(0, 0, 0, 0) 42%, rgba(0, 0, 0, .10) 74%, rgba(0, 0, 0, .30) 100%);
 }
-.page-mask { position: absolute; z-index: 2; left: 0; right: 0; bottom: 0; height: 0; background: var(--rd-bg); pointer-events: none; }
 /* two-page view: the frames sit side by side with a faint fold between them */
 .read-stage.spread iframe { width: 50%; }
 .read-stage.spread iframe.er-right { left: 50%; }
