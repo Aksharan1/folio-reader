@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.2
+
+### Changed
+- A new sepia app icon: a parchment tile with a brown open book and a red ribbon.
+- The screenshots show real public-domain comics, Little Nemo in Slumberland (1905) and the Hokusai Manga (1817).
+
 ## 1.2.1
 
 ### Changed
