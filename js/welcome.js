@@ -24,7 +24,6 @@ class Welcome {
     })));
     this.el = h('div.welcome', { role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Welcome to Folio' },
       h('div.wl-drag'),
-      h('div.wl-glow.wl-glow-a'), h('div.wl-glow.wl-glow-b'),
       h('div.wl-steps', steps),
       h('div.wl-foot',
         this.dots,
@@ -32,11 +31,30 @@ class Welcome {
       ),
     );
     this.steps = steps;
+    this.el.classList.add('wl-hold');
     document.body.appendChild(this.el);
     document.body.classList.add('welcoming');
     this.go(0);
-    // the first step's button takes focus once the book has opened
-    setTimeout(() => { if (this.step === 0 && this.el) this.el.querySelector('.wl-step.on .btn-primary')?.focus({ preventScroll: true, focusVisible: false }); }, 1400);
+    this.whenSmooth(() => {
+      if (!this.el) return;
+      this.el.classList.remove('wl-hold');
+      // the first step's button takes focus once the book has opened
+      setTimeout(() => { if (this.step === 0 && this.el) this.el.querySelector('.wl-step.on .btn-primary')?.focus({ preventScroll: true, focusVisible: false }); }, 800);
+    });
+  }
+
+  /* The window's first frames stall while the GPU warms up, and an animation started then
+     stutters. The welcome waits, still hidden, until a few frames in a row come quickly. */
+  whenSmooth(go) {
+    const start = performance.now();
+    let last = start, quick = 0;
+    const tick = (now) => {
+      quick = now - last < 22 ? quick + 1 : 0;
+      last = now;
+      if (quick >= 4 || now - start > 900) go();
+      else requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
   }
 
   /* 1. the book opens */
@@ -49,9 +67,9 @@ class Welcome {
     book.querySelector('.wl-page-right').innerHTML = BOOK_RIGHT;
     return h('section.wl-step.wl-hello',
       book,
-      h('h1.wl-title.wl-rise', { style: { '--d': '0.75s' } }, 'Welcome to Folio'),
-      h('p.wl-lead.wl-rise', { style: { '--d': '0.9s' } }, 'A calm place for your books, comics and manga.', h('br'), 'Everything stays on this computer.'),
-      h('div.wl-actions.wl-rise', { style: { '--d': '1.05s' } },
+      h('h1.wl-title.wl-rise', { style: { '--d': '0.24s' } }, 'Welcome to Folio'),
+      h('p.wl-lead.wl-rise', { style: { '--d': '0.29s' } }, 'A calm place for your books, comics and manga.', h('br'), 'Everything stays on this computer.'),
+      h('div.wl-actions.wl-rise', { style: { '--d': '0.34s' } },
         h('button.btn.btn-primary.btn-lg.wl-cta', { type: 'button', onclick: () => this.go(1) }, 'Get started', icon('right', 16)),
       ),
     );
@@ -77,9 +95,9 @@ class Welcome {
     this.markTheme();
     return h('section.wl-step.wl-choose',
       h('h2.wl-heading.wl-rise', 'Choose your page'),
-      h('p.wl-lead.wl-rise', { style: { '--d': '.08s' } }, 'The whole app follows it. Change it any time in Settings, or with Aa while reading.'),
+      h('p.wl-lead.wl-rise', { style: { '--d': '.04s' } }, 'The whole app follows it. Change it any time in Settings, or with Aa while reading.'),
       h('div.wl-themes', { role: 'radiogroup', 'aria-label': 'Theme' }, this.themeCards),
-      h('div.wl-actions.wl-rise', { style: { '--d': '.3s' } },
+      h('div.wl-actions.wl-rise', { style: { '--d': '.15s' } },
         h('button.btn.btn-ghost.btn-lg', { type: 'button', onclick: () => this.go(0) }, 'Back'),
         h('button.btn.btn-primary.btn-lg.wl-cta', { type: 'button', onclick: () => this.go(2) }, 'Continue', icon('right', 16)),
       ),
@@ -91,18 +109,18 @@ class Welcome {
     const a = this.app;
     return h('section.wl-step.wl-books',
       h('h2.wl-heading.wl-rise', 'Bring in your library'),
-      h('p.wl-lead.wl-rise', { style: { '--d': '.08s' } }, 'Books are copied into Folio, so the originals can stay where they are.'),
-      h('button.wl-drop.wl-rise', { type: 'button', style: { '--d': '.16s' }, onclick: () => a.fileInput.click() },
+      h('p.wl-lead.wl-rise', { style: { '--d': '.04s' } }, 'Books are copied into Folio, so the originals can stay where they are.'),
+      h('button.wl-drop.wl-rise', { type: 'button', style: { '--d': '.08s' }, onclick: () => a.fileInput.click() },
         h('span.wl-drop-ic', icon('upload', 30)),
         h('span.wl-drop-title', 'Drop books, comics or a whole folder here'),
         h('span.wl-drop-sub', 'or click to choose files'),
       ),
       h('div.wl-formats', WELCOME_FORMATS.map((f, i) => h('span.wl-chip', { style: { '--i': i } }, f))),
-      h('div.wl-actions.wl-rise', { style: { '--d': '.4s' } },
+      h('div.wl-actions.wl-rise', { style: { '--d': '.18s' } },
         h('button.btn.btn-lg', { type: 'button', onclick: () => a.folderInput.click() }, icon('folder', 16), 'Add a folder'),
         h('button.btn.btn-primary.btn-lg.wl-cta', { type: 'button', onclick: () => a.fileInput.click() }, icon('plus', 16), 'Add books'),
       ),
-      h('button.wl-link.wl-rise', { type: 'button', style: { '--d': '.5s' }, onclick: () => a.importSample() }, 'Or start with Frankenstein, a free classic'),
+      h('button.wl-link.wl-rise', { type: 'button', style: { '--d': '.24s' }, onclick: () => a.importSample() }, 'Or start with Frankenstein, a free classic'),
     );
   }
 
@@ -157,6 +175,6 @@ class Welcome {
     document.body.classList.add('welcomed-in');
     const done = () => { el.remove(); document.body.classList.remove('welcomed-in'); };
     if (this.app.reader.animateOff()) done();
-    else setTimeout(done, 700);
+    else setTimeout(done, 380);
   }
 }

@@ -642,16 +642,8 @@ try{
       f.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-popups');
       f.loaded = new Promise((res) => { f.addEventListener('load', res); });
       f.srcdoc = this.buildFrameHtml(index, frac, query, nth, side, anchor);
-      if (this.flipDir && !this.animateOff()) {
-        if (spread) {
-          f.style.opacity = '0.3';
-        } else {
-          const sign = this.flipDir > 0 ? 1 : -1;
-          f.style.transformOrigin = this.flipDir > 0 ? '0% 50%' : '100% 50%';
-          f.style.transform = 'rotateY(' + (sign * 68) + 'deg)';
-          f.style.opacity = '0.18';
-        }
-      }
+      // during a page turn the new page waits, unseen, for flipIn to bring it in
+      if (this.flipDir && !this.animateOff()) f.style.opacity = '0';
       return f;
     };
     /* in a right-to-left comic the first page of a pair is on the right */
@@ -864,74 +856,37 @@ try{
     try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (err) { return false; }
   }
 
-  shade() {
-    const stage = document.querySelector('.read-stage');
-    if (!stage) return null;
-    let s = stage.querySelector('.read-shade');
-    if (!s) { s = document.createElement('div'); s.className = 'read-shade'; stage.appendChild(s); }
-    return s;
-  }
-
-  /* the page lifts off the spine, then the next one swings in */
+  /* A page turn: the page drifts a little the way the reader is going as it fades, then the
+     next one settles in from the other side. Short and soft, so reading keeps its rhythm.
+     Web animations run on the compositor, and a quick second turn simply takes over. */
   async flipOut(dir) {
     this.flipDir = dir;
-    const f = this.frame;
-    const sh = this.shade();
-    if (!f || this.animateOff()) {
-      if (sh) sh.style.opacity = '0';
-      return;
-    }
+    if (!this.frame || this.animateOff()) return;
     this.flipping = true;
-    /* two pages at once fade across rather than swing */
-    if (this.frame2) {
-      for (const p of this.pages()) { p.style.transition = 'opacity 140ms ease-in'; p.style.opacity = '0.3'; }
-      await this.sleep(140);
-      return;
-    }
-    const sign = dir > 0 ? -1 : 1;
-    f.style.transformOrigin = dir > 0 ? '0% 50%' : '100% 50%';
-    f.style.transition = 'transform 250ms cubic-bezier(.36,.06,.55,.95), opacity 250ms ease-in';
-    f.style.transform = 'rotateY(' + (sign * 68) + 'deg)';
-    f.style.opacity = '0.18';
-    if (sh) { sh.style.transition = 'opacity 250ms ease-in'; sh.style.opacity = '0.55'; sh.style.transform = dir > 0 ? '' : 'scaleX(-1)'; }
-    await this.sleep(250);
+    this.turnOut = this.pages().map((p) => p.animate(
+      [{ transform: 'none', opacity: 1 }, { transform: `translateX(${-dir * 14}px)`, opacity: 0 }],
+      { duration: 120, easing: 'cubic-bezier(.4, 0, 1, 1)', fill: 'forwards' }));
+    await Promise.all(this.turnOut.map((a) => a.finished.catch(() => {})));
   }
 
   async flipIn(dir) {
     this.flipDir = 0;
-    const f = this.frame;
-    const sh = this.shade();
-    if (!f) return;
-    if (this.animateOff()) {
-      f.style.transform = ''; f.style.opacity = ''; f.style.transition = '';
-      if (sh) sh.style.opacity = '0';
-      return;
-    }
-    if (this.frame2) {
-      const ps = this.pages();
-      for (const p of ps) { p.style.transition = 'none'; p.style.opacity = '0.3'; }
-      await this.sleep(20);
-      for (const p of ps) { p.style.transition = 'opacity 200ms ease-out'; p.style.opacity = '1'; }
-      await this.sleep(200);
-      for (const p of ps) { p.style.transition = ''; p.style.opacity = ''; }
+    const pages = this.pages();
+    const out = this.turnOut || [];
+    this.turnOut = null;
+    if (!pages.length || this.animateOff()) {
+      out.forEach((a) => a.cancel());
+      pages.forEach((p) => { p.style.opacity = ''; });
       this.flipping = false;
       return;
     }
-    const sign = dir > 0 ? 1 : -1;
-    f.style.transition = 'none';
-    f.style.transformOrigin = dir > 0 ? '0% 50%' : '100% 50%';
-    f.style.transform = 'rotateY(' + (sign * 68) + 'deg)';
-    f.style.opacity = '0.18';
-    if (sh) { sh.style.opacity = '0.55'; sh.style.transform = dir > 0 ? '' : 'scaleX(-1)'; }
-    await this.sleep(30);
-    f.style.transition = 'transform 330ms cubic-bezier(.18,.72,.28,1), opacity 330ms ease-out';
-    f.style.transform = 'rotateY(0deg)';
-    f.style.opacity = '1';
-    if (sh) { sh.style.transition = 'opacity 330ms ease-out'; sh.style.opacity = '0'; }
-    await this.sleep(330);
-    f.style.transition = '';
-    f.style.transform = '';
-    f.style.opacity = '';
+    const turns = pages.map((p) => p.animate(
+      [{ transform: `translateX(${dir * 22}px)`, opacity: 0 }, { opacity: 1, offset: 0.5 }, { transform: 'none', opacity: 1 }],
+      { duration: 300, easing: 'cubic-bezier(.16, 1, .3, 1)', fill: 'backwards' }));
+    // the new animation holds the page from here, so the faded-out state can go
+    out.forEach((a) => a.cancel());
+    pages.forEach((p) => { p.style.opacity = ''; });
+    await Promise.all(turns.map((a) => a.finished.catch(() => {})));
     this.flipping = false;
   }
 
