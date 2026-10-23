@@ -1,11 +1,12 @@
 // Regenerates the README pictures in docs/screenshots: `npm run screenshots`
 // Imports the bundled Frankenstein sample, a few tiny demo EPUBs (public-domain opening lines, no
-// cover art, so the generated covers show) and a demo manga drawn by scripts/demo-manga.js, stages
-// some reading progress, captures the app at twice the pixel density, then lays the captures out
+// cover art, so the generated covers show) and two public-domain comics fetched from Wikimedia
+// Commons (see COMICS), stages some reading progress, captures the app at twice the pixel density, then lays the captures out
 // as framed pictures (a hero, a strip of the five themes, and one per feature) in headless Chrome.
 import JSZip from 'jszip';
 import puppeteer from 'puppeteer';
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -27,6 +28,52 @@ const DEMO = [
   ['Little Women', 'Louisa May Alcott', '“Christmas won’t be Christmas without any presents,” grumbled Jo, lying on the rug.'],
   ['Meditations', 'Marcus Aurelius', 'Of my grandfather Verus I have learned to be gentle and meek, and to refrain from all anger and passion.'],
 ];
+
+/* Public-domain comics, by their file names on Wikimedia Commons:
+   - Little Nemo in Slumberland, Winsor McCay, New York Herald, 1905 (public domain)
+   - Hokusai Manga, volume 6, Katsushika Hokusai, 1817, scanned by the Metropolitan Museum of Art (CC0)
+   They're downloaded once and kept in the temp folder. */
+const COMICS = [
+  {
+    file: 'Little Nemo in Slumberland (1905).cbz',
+    info: '<Series>Little Nemo in Slumberland</Series><Writer>Winsor McCay</Writer><Year>1905</Year><Manga>No</Manga><LanguageISO>en</LanguageISO>',
+    pages: ['Little Nemo 1905-10-15.jpg', 'Little Nemo in Slumberland (1905-10-22).jpeg', 'Little Nemo 1905-10-29.jpg', 'Little Nemo 1905-11-05.jpg',
+      'Little Nemo 1905-11-12.jpg', 'Little Nemo 1905-11-19.jpg', 'Little Nemo 1905-11-26.jpg', 'Little Nemo 1905-12-10.jpg',
+      'Little Nemo 1905-12-17.jpg', 'Little Nemo 1905-12-24.jpg', 'Little Nemo 1905-12-31.jpg'],
+  },
+  {
+    file: 'Hokusai Manga 6.cbz',
+    info: '<Title>Hokusai Manga</Title><Series>Hokusai Manga</Series><Volume>6</Volume><Writer>Katsushika Hokusai</Writer><Year>1817</Year><Manga>YesAndRightToLeft</Manga><LanguageISO>ja</LanguageISO>',
+    pages: ['MET JIB81 6 d1 MM13402.jpeg', 'MET JIB81 6 d2 MM13403.jpeg', 'MET JIB81 6 d3 MM13404.jpeg', 'MET JIB81 6 d4 MM74049.jpeg',
+      'MET JIB81 6 d5 MM74048.jpeg', 'MET JIB81 6 d6 MM74047.jpeg', 'MET JIB81 6 d7 MM74046.jpeg'],
+  },
+];
+const CACHE = join(tmpdir(), 'folio-commons');
+
+/* a file from Wikimedia Commons, by name (uploads live at a path made from the name's MD5) */
+async function commons(name) {
+  const key = name.replace(/ /g, '_');
+  const cached = join(CACHE, key);
+  if (existsSync(cached)) return readFileSync(cached);
+  const md5 = createHash('md5').update(key).digest('hex');
+  const url = `https://upload.wikimedia.org/wikipedia/commons/${md5[0]}/${md5.slice(0, 2)}/${encodeURIComponent(key)}`;
+  const res = await fetch(url, { headers: { 'User-Agent': 'FolioScreenshots/1.0 (https://github.com/Aksharan1/folio-reader)' } });
+  if (!res.ok) throw new Error(`${name}: ${res.status}`);
+  const data = Buffer.from(await res.arrayBuffer());
+  mkdirSync(CACHE, { recursive: true });
+  writeFileSync(cached, data);
+  await new Promise((r) => setTimeout(r, 1500));   // gently, one at a time
+  return data;
+}
+
+async function comicCbz({ file, info, pages }) {
+  const zip = new JSZip();
+  zip.file('ComicInfo.xml', `<?xml version="1.0"?><ComicInfo>${info}</ComicInfo>`);
+  for (const [i, name] of pages.entries()) zip.file(String(i + 1).padStart(3, '0') + '.jpg', await commons(name), { compression: 'STORE' });
+  const out = join(RAW, file);
+  writeFileSync(out, await zip.generateAsync({ type: 'nodebuffer' }));
+  return out;
+}
 
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
 
@@ -59,7 +106,6 @@ const ready = () => page.waitForFunction(() => {
 const tone = async (id) => { await page.evaluate((id) => app.setReading({ tone: id }), id); await ready(); };
 
 await page.goto('app://folio/index.html', { waitUntil: 'networkidle0' });
-await page.addScriptTag({ content: readFileSync('scripts/demo-manga.js', 'utf8') });
 await page.evaluate(() => { app.toast = () => {}; app.setPref('twoPages', true); app.setAppTheme('sepia'); app.setReading({ font: 'palatino', brightness: 0.5 }); });
 await page.evaluate(() => app.importSample());
 await page.waitForSelector('.book');
@@ -70,13 +116,18 @@ for (const [title, author, text] of DEMO) {
     await app.library.addBytes(name, bytes);
   }, title + '.epub', b64);
 }
-await page.evaluate(async () => { await app.library.add(await demoMangaCbz()); });
+for (const comic of COMICS) {
+  const count = await page.evaluate(() => app.library.records.length);
+  await (await page.$('input.hidden-file')).uploadFile(await comicCbz(comic));
+  await page.waitForFunction((n) => app.library.records.length === n + 1, { timeout: 60000 }, count);
+}
 
 // a believable reading history
 await page.evaluate(() => {
   const hour = 3600e3, now = Date.now();
   const stage = {
-    'Tidewatch Vol. 1': { pct: 44, lastOpened: now - 2 * hour, readMs: 0.6 * hour, favourite: true },
+    'Little Nemo in Slumberland': { pct: 44, lastOpened: now - 2 * hour, readMs: 0.6 * hour, favourite: true },
+    'Hokusai Manga Vol. 6': { pct: 30, lastOpened: now - 30 * hour, readMs: 0.4 * hour },
     'Pride and Prejudice': { pct: 64, lastOpened: now - 26 * hour, readMs: 4.2 * hour, favourite: true },
     'Moby-Dick': { pct: 12, lastOpened: now - 3 * 24 * hour, readMs: 1.1 * hour },
     'A Tale of Two Cities': { pct: 100, lastOpened: now - 9 * 24 * hour, readMs: 9.5 * hour, favourite: true },
@@ -164,23 +215,27 @@ await raw('search');
 await page.keyboard.press('Escape');
 await tone('sepia');
 
-// the manga: right to left, two pages at a time, then its page contents
-await page.evaluate(() => app.closeBook());
-await page.waitForFunction(() => app.screen === 'library' && !!document.querySelector('.book'));
-await page.evaluate(() => app.openBook(app.library.records.find((r) => r.format === 'CBZ')));
-await ready();
-await page.evaluate(() => app.reader.renderSection(3, 0).then(() => app.refreshProgress()));
+// the manga, right to left, two pages at a time
+const openComic = async (title) => {
+  await page.evaluate(() => app.closeBook());
+  await page.waitForFunction(() => app.screen === 'library' && !!document.querySelector('.book'));
+  await page.evaluate((t) => app.openBook(app.library.records.find((r) => r.title.startsWith(t))), title);
+  await ready();
+};
+await openComic('Hokusai Manga');
+await page.evaluate(() => app.reader.renderSection(1, 0).then(() => app.refreshProgress()));
 await ready();
 await raw('manga');
-await page.evaluate(() => app.reader.renderSection(5, 0).then(() => app.refreshProgress()));
+
+// a colour comic, left to right, then its page contents
+await openComic('Little Nemo');
+await page.evaluate(() => app.reader.renderSection(1, 0).then(() => app.refreshProgress()));
 await ready();
-await raw('manga-spread');
+await raw('comic');
 await tone('midnight');
-await page.evaluate(() => app.reader.renderSection(3, 0).then(() => app.refreshProgress()));
-await ready();
 await page.keyboard.press('KeyT');
-await sleep(800);
-await raw('manga-contents');
+await sleep(1200);
+await raw('comic-contents');
 await page.keyboard.press('Escape');
 await tone('sepia');
 
@@ -202,6 +257,9 @@ const img = (name) => pathToFileURL(join(RAW, name + '.png')).href;
 // a window: rounded corners, a hairline edge and a soft shadow, on a transparent background
 const WINDOW = 'border-radius:14px;box-shadow:0 0 0 1px rgba(0,0,0,.18),0 24px 60px -12px rgba(40,24,8,.45),0 8px 18px -6px rgba(40,24,8,.3);display:block;';
 
+// scanned comic pages are photographs, which WebP holds in a fraction of a PNG's size
+const PHOTOS = new Set(['manga', 'comic', 'comic-contents']);
+
 async function compose(name, width, height, body, transparent = true) {
   const file = join(RAW, name + '.html');
   writeFileSync(file, `<!doctype html><html><head><meta charset="utf-8"><style>
@@ -209,16 +267,17 @@ async function compose(name, width, height, body, transparent = true) {
   </style></head><body>${body}</body></html>`);
   await sheet.setViewport({ width, height, deviceScaleFactor: 1.5 });
   await sheet.goto(pathToFileURL(file).href, { waitUntil: 'load' });
-  await sheet.screenshot({ path: join(OUT, name + '.png'), omitBackground: transparent });
+  const webp = PHOTOS.has(name);
+  await sheet.screenshot({ path: join(OUT, name + (webp ? '.webp' : '.png')), omitBackground: transparent, ...(webp ? { type: 'webp', quality: 88 } : {}) });
   console.log('saved', name);
 }
 
-// hero: the sepia reader with the manga in front of it, on warm paper
+// hero: the sepia reader with a comic in front of it, on warm paper
 await compose('hero', 1280, 760, `
   <div style="position:absolute;inset:0;border-radius:22px;background:radial-gradient(120% 90% at 20% 10%,#f6e7c9 0%,#e9cf9f 55%,#cfa66c 100%)"></div>
   <div style="position:absolute;inset:0;border-radius:22px;background:repeating-linear-gradient(115deg,rgba(255,255,255,.05) 0 2px,transparent 2px 7px)"></div>
   <img src="${img('reader-sepia')}" style="${WINDOW}position:absolute;left:48px;top:48px;width:880px">
-  <img src="${img('manga')}" style="${WINDOW}position:absolute;right:44px;bottom:44px;width:560px">`);
+  <img src="${img('comic')}" style="${WINDOW}position:absolute;right:44px;bottom:44px;width:560px">`);
 
 // the five themes, as slices of the same page
 const THEMES = [['light', 'Paper'], ['sepia', 'Sepia'], ['dark', 'Dusk'], ['midnight', 'Midnight'], ['charcoal', 'Black']];
@@ -231,7 +290,7 @@ await compose('themes', 1280, 520, `
   </div>`);
 
 // one framed window per feature
-const shots = ['reader-sepia', 'manga', 'manga-spread', 'manga-contents', 'library', 'reading-now', 'appearance', 'search', 'annotations'];
+const shots = ['reader-sepia', 'manga', 'comic', 'comic-contents', 'library', 'reading-now', 'appearance', 'search', 'annotations'];
 if (lookedUp) shots.push('look-up');
 for (const name of shots) {
   await compose(name, 1280, 820, `<img src="${img(name)}" style="${WINDOW}position:absolute;left:24px;top:20px;width:1232px">`);

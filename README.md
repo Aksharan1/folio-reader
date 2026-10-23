@@ -14,7 +14,7 @@ No account, no cloud, no tracking.
 ![Windows, macOS and Linux](https://img.shields.io/badge/runs%20on-Windows%20%7C%20macOS%20%7C%20Linux-8a6a45)
 [![MIT licence](https://img.shields.io/badge/licence-MIT-6f7d4a)](LICENSE)
 
-<img src="docs/screenshots/hero.png" alt="Frankenstein open in two-page view on a sepia page, with a manga open in front of it, read right to left">
+<img src="docs/screenshots/hero.png" alt="Frankenstein open in two-page view on a sepia page, with Little Nemo in Slumberland open in front of it">
 
 **[⬇ Download for Windows, Mac or Linux](#download)** · [Features](#features) · [Manga and comics](#manga-and-comics) · [Formats](#supported-formats) · [Shortcuts](#keyboard-shortcuts) · [Build from source](#building-from-source)
 
@@ -99,7 +99,7 @@ Paper, **Sepia**, Dusk, Midnight and Black. Each one restyles the whole app as w
 
 ## Manga and comics
 
-<img src="docs/screenshots/manga.png" alt="A manga open in two-page view, read right to left">
+<img src="docs/screenshots/manga.webp" alt="Hokusai Manga open in two-page view, read right to left">
 
 - **CBZ, CBR and CBT** open with one picture per page, fitted to the window.
 - **Right to left for manga.** Folio reads `ComicInfo.xml` to tell manga from western comics. Press **D** to switch direction for any book. In a right-to-left book, **←** turns to the next page and the first page of each pair sits on the right.
@@ -110,8 +110,8 @@ Paper, **Sepia**, Dusk, Midnight and Black. Each one restyles the whole app as w
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/screenshots/manga-spread.png" alt="A double-page spread shown across the whole window"></td>
-    <td width="50%"><img src="docs/screenshots/manga-contents.png" alt="Page thumbnails in the contents panel, in right-to-left order"></td>
+    <td width="50%"><img src="docs/screenshots/comic.webp" alt="Little Nemo in Slumberland in two-page view, read left to right"></td>
+    <td width="50%"><img src="docs/screenshots/comic-contents.webp" alt="Page thumbnails of Little Nemo in the contents panel"></td>
   </tr>
 </table>
 
@@ -228,7 +228,7 @@ electron/
 vendor/               epub.js, JSZip, pdf.js, foliate-js's MOBI parser and node-unrar-js (pre-built)
 samples/              a public-domain sample book
 build/icon.png        app icon
-scripts/              screenshot, demo manga, icon and vendor helpers
+scripts/              screenshot, icon, disk image and vendor helpers
 tests/                end-to-end test, the launcher it uses, and a small CBR fixture
 ```
 
@@ -243,7 +243,8 @@ Bug reports, ideas and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBU
 - [node-unrar-js](https://github.com/YuJianrong/node-unrar.js) (MIT), built from RARLAB's [UnRAR](https://www.rarlab.com/rar_add.htm) source (freeware licence), opens CBR comics.
 - Definitions come from [Wiktionary](https://www.wiktionary.org/), and summaries from [Wikipedia](https://www.wikipedia.org/) (CC BY-SA).
 - The sample book, *Frankenstein* by Mary Wollstonecraft Shelley, comes from [Project Gutenberg](https://www.gutenberg.org/ebooks/84).
-- The other titles in the screenshots are tiny demo files built by `scripts/screenshots.mjs` from public-domain opening lines. The manga, *Tidewatch*, is drawn from scratch by `scripts/demo-manga.js`.
+- The other books in the screenshots are tiny demo files built by `scripts/screenshots.mjs` from public-domain opening lines.
+- The comics in the screenshots are in the public domain, from Wikimedia Commons: *Little Nemo in Slumberland* by Winsor McCay (New York Herald, 1905), and volume 6 of the *Hokusai Manga* by Katsushika Hokusai (1817), photographed by the [Metropolitan Museum of Art](https://www.metmuseum.org/) (CC0). The screenshot script downloads them; they aren't stored in this repository.
 
 ## Licence
 
