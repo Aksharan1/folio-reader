@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.4.0
 
 ### Added
 - A natural read-aloud voice: Kokoro, run on your computer. It downloads once (about 175 MB, checked against published checksums) the first time you press Read aloud, or from Settings › Reading, with eight English voices and a Preview button. Speech starts in about two seconds and flows without gaps. Books in other languages use the system voices.

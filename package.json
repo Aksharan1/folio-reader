@@ -1,7 +1,7 @@
 {
   "name": "folio-reader",
   "productName": "Folio",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "A fast, private e-book and manga reader for Windows, macOS and Linux. EPUB, Kindle, PDF, comics (CBZ, CBR), FB2, Word, Markdown and text.",
   "author": "Aksharan",
   "homepage": "https://github.com/Aksharan1/folio-reader#readme",
