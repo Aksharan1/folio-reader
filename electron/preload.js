@@ -23,6 +23,19 @@ contextBridge.exposeInMainWorld('folioDesktop', {
   setTitleBar(color, symbolColor, height) {
     ipcRenderer.send('title-bar', color, symbolColor, height);
   },
+  // the natural voice: { installed, downloading, bytes }; install() reports { received, total }
+  voice: {
+    status: () => ipcRenderer.invoke('voice-status'),
+    install(onProgress) {
+      const listener = (e, p) => onProgress && onProgress(p);
+      ipcRenderer.on('voice-progress', listener);
+      return ipcRenderer.invoke('voice-install').finally(() => ipcRenderer.removeListener('voice-progress', listener));
+    },
+    cancel: () => ipcRenderer.invoke('voice-cancel'),
+    remove: () => ipcRenderer.invoke('voice-remove'),
+    // resolves to { samples (Float32Array, mono), rate }
+    speak: (text, voice, speed) => ipcRenderer.invoke('voice-speak', text, voice, speed),
+  },
   // { version }
   appInfo() {
     return ipcRenderer.invoke('app-info');

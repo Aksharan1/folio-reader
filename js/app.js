@@ -63,6 +63,9 @@ const SHORTCUTS = [
   ]],
 ];
 
+/* what Preview says */
+const VOICE_SAMPLE = 'I am already far north of London, and as I walk in the streets of Petersburgh, I feel a cold northern breeze play upon my cheeks.';
+
 /* reading characters per minute when there's no personal history yet (~220 wpm) */
 const DEFAULT_CPM = 1100;
 
@@ -843,7 +846,7 @@ class App {
     } else if (this.settingsTab === 'reading') {
       root.appendChild(h('div.card.settings-card.narrow',
         this.toggleRow('Two pages on wide windows', 'Show two pages side by side, like an open book, when the window is wide enough.', 'twoPages'),
-        this.toggleRow('Page-turn animation', 'Pages swing over like paper when you turn them.', 'animate'),
+        this.toggleRow('Page-turn animation', 'Pages glide softly as you turn them.', 'animate'),
         this.toggleRow('Show reading progress', 'Progress bar and page count under the page.', 'showProgress'),
         this.toggleRow('Auto-hide toolbars', 'Fade the reader toolbars while you read. Tap the middle of the page to bring them back.', 'autoHide'),
         this.voiceRow(),
@@ -975,17 +978,106 @@ class App {
     return this.setting(label, sw, hint);
   }
 
+  /* One list for both kinds of voice: Folio's natural voices, then the system's. Under it, the
+     natural voice's download (or a way to remove it), and a button to hear the choice. */
   voiceRow() {
-    const voices = ReadAloud.voices(() => { if (this.screen === 'library' && this.view === 'settings' && this.settingsTab === 'reading') this.renderLibrary(); });
-    const sel = h('select.select', { 'aria-label': 'Read-aloud voice', onchange: () => this.setPref('ttsVoice', sel.value) },
-      h('option', { value: '' }, 'Match the book’s language'),
-      voices.map((v) => h('option', { value: v.name }, v.name.replace(/^Microsoft /, '').replace(/ - .*$/, '').replace(/ Desktop$/, '') + ' · ' + v.lang)));
-    sel.value = this.prefs.ttsVoice || '';
-    const more = {
-      win32: 'the voices installed in Windows; add more under Settings › Time & language › Speech',
-      darwin: 'the voices installed in macOS; add more under System Settings › Accessibility › Spoken Content',
-    }[PLATFORM] || 'the voices installed on your computer (on Linux, through speech-dispatcher)';
-    return this.setting('Read-aloud voice', sel, 'Press R while reading to listen. Folio uses ' + more + '.');
+    const refresh = () => { if (this.screen === 'library' && this.view === 'settings') this.renderLibrary(); };
+    const voices = typeof speechSynthesis !== 'undefined' ? ReadAloud.voices(refresh) : [];
+    const p = this.prefs;
+    const sel = h('select.select', {
+      'aria-label': 'Read-aloud voice',
+      onchange: () => {
+        const [engine, name] = sel.value.split(/:(.*)/s);
+        if (engine === 'natural') { p.naturalVoice = name; this.setPref('ttsEngine', 'natural', true); }
+        else { p.ttsVoice = name; this.setPref('ttsEngine', 'system', true); }
+      },
+    },
+      h('optgroup', { label: 'Natural voices (Folio)' }, NATURAL_VOICES.map(([id, name]) => h('option', { value: 'natural:' + id }, name))),
+      h('optgroup', { label: 'System voices' },
+        h('option', { value: 'system:' }, 'Match the book’s language'),
+        voices.map((v) => h('option', { value: 'system:' + v.name }, v.name.replace(/^Microsoft /, '').replace(/ - .*$/, '').replace(/ Desktop$/, '') + ' · ' + v.lang))),
+    );
+    sel.value = p.ttsEngine === 'system' ? 'system:' + (p.ttsVoice || '') : 'natural:' + this.speech.naturalVoice();
+    const preview = h('button.btn', { type: 'button', onclick: () => this.speech.preview() }, icon('speaker', 16), 'Preview');
+
+    const natural = h('div.voice-natural');
+    const paint = (st) => {
+      natural.innerHTML = '';
+      if (st.installed) {
+        natural.append(h('span.muted', 'Natural voices downloaded · ' + fmtSize(st.bytes)),
+          h('button.btn.btn-ghost', { type: 'button', onclick: () => window.folioDesktop.voice.remove().then(() => { this.toast('Natural voices removed', 'check'); refresh(); }) }, 'Remove'));
+      } else {
+        const bar = h('div.pbar.voice-bar', h('i', { style: { width: '0%' } }));
+        const btn = h('button.btn.btn-primary', { type: 'button' }, icon('download', 16), 'Download natural voices · ' + fmtSize(st.bytes));
+        btn.onclick = async () => {
+          btn.disabled = true;
+          natural.appendChild(bar);
+          const ok = await this.installVoice((x) => { bar.firstChild.style.width = (x.received / x.total * 100).toFixed(1) + '%'; btn.lastChild.textContent = 'Downloading… ' + Math.floor(x.received / x.total * 100) + '%'; });
+          if (ok) refresh(); else { btn.disabled = false; bar.remove(); btn.lastChild.textContent = 'Download natural voices · ' + fmtSize(st.bytes); }
+        };
+        natural.append(btn);
+      }
+    };
+    if (window.folioDesktop.voice) window.folioDesktop.voice.status().then(paint).catch(() => {});
+
+    return this.setting('Read-aloud voice', h('div.voice-row', h('div.voice-pick', sel, preview), natural),
+      'Press R while reading to listen. The natural voices sound like a person and run on this computer (English books); they’re downloaded once. System voices cover other languages.');
+  }
+
+  /* downloads the natural voice; resolves to true when it's ready */
+  async installVoice(onProgress) {
+    try {
+      await window.folioDesktop.voice.install(onProgress);
+      this.prefs.ttsOffered = true;
+      this.setPref('ttsEngine', 'natural');
+      this.toast('Natural voices ready', 'check');
+      return true;
+    } catch (e) {
+      const msg = String(e && e.message || e).replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
+      if (msg !== 'cancelled') this.toast('Couldn’t download the voice: ' + msg, 'info');
+      return false;
+    }
+  }
+
+  /* the first time read aloud is asked for, offer the natural voice */
+  offerNaturalVoice() {
+    const bar = h('div.pbar.voice-bar', h('i', { style: { width: '0%' } }));
+    const status = h('p.muted', 'About 175 MB, downloaded once from Hugging Face. After that it works offline, and nothing you read leaves this computer.');
+    let downloading = false;
+    this.openModal({
+      title: 'Read aloud with a natural voice?',
+      body: h('div.voice-offer',
+        h('p', 'Folio can read to you with Kokoro, an open voice that sounds like a person and runs on this computer. It reads English books; other languages use the system’s voices.'),
+        status, bar),
+      actions: [
+        { label: 'Use the system voice', run: () => {
+          if (downloading) { window.folioDesktop.voice.cancel(); return false; }
+          this.prefs.ttsOffered = true;
+          this.setPref('ttsEngine', 'system');
+          this.speech.start();
+        } },
+        { label: 'Download and read', primary: true, run: () => {
+          if (downloading) return false;
+          downloading = true;
+          const btns = this.modalEl.querySelectorAll('.modal-foot .btn');
+          btns[0].textContent = 'Cancel';
+          btns[1].disabled = true;
+          bar.classList.add('on');
+          this.installVoice((x) => {
+            const pct = Math.floor(x.received / x.total * 100);
+            bar.firstChild.style.width = pct + '%';
+            status.textContent = 'Downloading… ' + pct + '% · ' + fmtSize(x.received) + ' of ' + fmtSize(x.total);
+          }).then((ok) => {
+            downloading = false;
+            if (!this.modalEl) return;
+            this.closeModal();
+            if (ok) this.speech.start();
+          });
+          return false;
+        } },
+      ],
+      onClose: () => { if (downloading) window.folioDesktop.voice.cancel(); },
+    });
   }
 
   shortcutsEl() {

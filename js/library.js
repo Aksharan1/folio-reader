@@ -22,7 +22,10 @@ function defaultPrefs() {
     showProgress: true,    // bottom progress bar in the reader
     autoHide: false,       // fade reader toolbars while reading
     twoPages: true,        // two pages side by side on wide windows
-    ttsVoice: '',          // read-aloud voice name; empty picks one for the book's language
+    ttsEngine: 'natural',  // read-aloud engine: 'natural' (Folio's downloaded voice) or 'system'
+    naturalVoice: 'af_heart', // the natural voice to read with
+    ttsOffered: false,     // the natural voice has been offered once
+    ttsVoice: '',          // system voice name; empty picks one for the book's language
     ttsRate: 1,            // read-aloud speed
     welcomed: false,       // the first-run welcome has been seen
   };

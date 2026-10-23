@@ -19,11 +19,18 @@ jobs:
         with:
           node-version: 24
           cache: npm
+      # the voice engine only fetches CUDA libraries for a CUDA machine; never on CI
       - run: npm ci
+        env:
+          ONNXRUNTIME_NODE_INSTALL_CUDA: skip
       # make sure Electron's binary is present even if install scripts were skipped
       - run: node node_modules/electron/install.js
       # Linux runners have no screen, so the app gets a virtual one
       - if: runner.os == 'Linux'
         run: xvfb-run -a npm test
+        env:
+          FOLIO_VOICE_TEST: 1
       - if: runner.os != 'Linux'
         run: npm test
+        env:
+          FOLIO_VOICE_TEST: 1

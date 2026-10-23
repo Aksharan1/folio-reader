@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- A natural read-aloud voice: Kokoro, run on your computer. It downloads once (about 175 MB, checked against published checksums) the first time you press Read aloud, or from Settings › Reading, with eight English voices and a Preview button. Speech starts in about two seconds and flows without gaps. Books in other languages use the system voices.
+
+### Changed
+- Page turns are a soft glide instead of a 3D swing, with no dropped frames.
+- The welcome plays in about half the time and no longer stutters as it opens.
+- Manga: the two pages of a spread meet at the fold, a pair shares one height, small scans scale up to fill the window, and narrow windows show one page at a time.
+- Quick page turns are no longer lost: presses during a turn queue up, and catch up without animation.
+
+### Fixed
+- Text flashed at the bottom of the page on every page turn.
+- Some converted books (Kindle, calibre) showed their text off-centre.
+
 ## 1.3.0
 
 ### Added

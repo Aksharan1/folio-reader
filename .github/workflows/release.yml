@@ -25,12 +25,19 @@ jobs:
         with:
           node-version: 24
           cache: npm
+      # the voice engine only fetches CUDA libraries for a CUDA machine; never on CI
       - run: npm ci
+        env:
+          ONNXRUNTIME_NODE_INSTALL_CUDA: skip
       - run: node node_modules/electron/install.js
       - if: runner.os == 'Linux'
         run: xvfb-run -a npm test
+        env:
+          FOLIO_VOICE_TEST: 1
       - if: runner.os != 'Linux'
         run: npm test
+        env:
+          FOLIO_VOICE_TEST: 1
       - run: npm run dist -- --publish never
       # install each package the way a user would, and check Folio lands where it should
       - name: Install check (Windows)

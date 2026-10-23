@@ -25,7 +25,7 @@ No account, no cloud, no tracking.
 |  |  |  |
 | --- | --- | --- |
 | 📖 **Reads like a book**<br>Two pages side by side, page turns that never cut a line in half, and a warm Sepia page that's easy on the eyes. | 🎌 **Manga, the right way round**<br>Comics open as full pages. Manga reads right to left, with spreads paired like the printed volume. | 🔒 **Yours alone**<br>No account and no telemetry. Your library, progress and notes stay on your computer. |
-| 🗂 **Every format you own**<br>EPUB, MOBI and AZW3, PDF (even scanned ones), CBZ, CBR, FB2, Word, Markdown and text. | ✍️ **Notes that travel**<br>Highlights in five colours, notes and bookmarks. Import Kindle highlights, export Markdown. | 🔊 **Look up and listen**<br>Define any word from Wiktionary, or have the book read aloud while the pages turn. |
+| 🗂 **Every format you own**<br>EPUB, MOBI and AZW3, PDF (even scanned ones), CBZ, CBR, FB2, Word, Markdown and text. | ✍️ **Notes that travel**<br>Highlights in five colours, notes and bookmarks. Import Kindle highlights, export Markdown. | 🔊 **Look up and listen**<br>Define any word from Wiktionary, or have the book read to you in a natural voice while the pages turn. |
 
 ## Download
 
@@ -72,7 +72,7 @@ Folio opens on a short welcome: its book swings open, you pick the page you like
 - Pages break between lines, so no line is ever cut in half or shown twice.
 - Two pages side by side on wide windows, like an open book.
 - Five themes with a brightness control, 11 fonts, and adjustable text size, line spacing, margins and alignment.
-- **Read aloud** with your system's voices. It follows along, turning pages and moving through chapters.
+- **Read aloud** in a natural voice that runs on your computer (Kokoro, downloaded once, about 175 MB), or with your system's voices. It follows along, turning pages and moving through chapters, and gets the next sentence ready while it speaks, so there are no gaps.
 - **Look up** any word for a definition from Wiktionary, or a Wikipedia summary for names and places.
 - Footnotes open in a popup next to the text. Links inside a book work, and web links open in your browser.
 - Full-text search in the book, a contents panel, a progress scrubber, and an estimate of the time left.
@@ -168,7 +168,7 @@ In a right-to-left manga, `←` is the next page and `→` the previous one, the
 ## Privacy
 
 - Everything stays on your computer. There's no account, telemetry or sync server.
-- Folio only goes online when you look up a word.
+- Folio only goes online when you look up a word, and once to download the natural voice if you ask for it.
 - A book can't run scripts or load anything from the internet.
 
 ## Where your data lives
@@ -251,6 +251,7 @@ Bug reports, ideas and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBU
 
 - [epub.js](https://github.com/futurepress/epub.js) (BSD-2-Clause) and [JSZip](https://stuk.github.io/jszip/) (MIT) do the EPUB parsing.
 - [pdf.js](https://github.com/mozilla/pdf.js) (Apache-2.0) reads PDFs, and [foliate-js](https://github.com/johnfactotum/foliate-js) (MIT) reads Kindle books.
+- The natural voice is [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M) (Apache-2.0), run with [ONNX Runtime](https://onnxruntime.ai/) (MIT). Its text clean-up follows [kokoro-js](https://github.com/hexgrad/kokoro) (Apache-2.0), and words become sounds with [eSpeak NG](https://github.com/espeak-ng/espeak-ng) (GPL-3.0) through [phonemizer](https://github.com/xenova/phonemizer.js).
 - [node-unrar-js](https://github.com/YuJianrong/node-unrar.js) (MIT), built from RARLAB's [UnRAR](https://www.rarlab.com/rar_add.htm) source (freeware licence), opens CBR comics.
 - Definitions come from [Wiktionary](https://www.wiktionary.org/), and summaries from [Wikipedia](https://www.wikipedia.org/) (CC BY-SA).
 - The sample book, *Frankenstein* by Mary Wollstonecraft Shelley, comes from [Project Gutenberg](https://www.gutenberg.org/ebooks/84).
@@ -259,4 +260,4 @@ Bug reports, ideas and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBU
 
 ## Licence
 
-[MIT](LICENSE)
+[MIT](LICENSE) for Folio's own code. The installers also carry eSpeak NG, under the GPL-3.0, for the natural voice's pronunciation; its source is at [github.com/espeak-ng/espeak-ng](https://github.com/espeak-ng/espeak-ng).

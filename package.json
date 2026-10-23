@@ -136,7 +136,16 @@
       ],
       "identity": "-",
       "hardenedRuntime": false,
-      "artifactName": "Folio-macOS.${ext}"
+      "artifactName": "Folio-macOS.${ext}",
+      "files": [
+        "index.html",
+        "app.css",
+        "js/**",
+        "vendor/**",
+        "samples/**",
+        "electron/**",
+        "!node_modules/onnxruntime-node/bin/napi-v3/{win32,linux}/**"
+      ]
     },
     "dmg": {
       "title": "Folio",
@@ -176,13 +185,40 @@
         "application/vnd.comicbook-rar",
         "application/x-fictionbook+xml",
         "application/pdf"
+      ],
+      "files": [
+        "index.html",
+        "app.css",
+        "js/**",
+        "vendor/**",
+        "samples/**",
+        "electron/**",
+        "!node_modules/onnxruntime-node/bin/napi-v3/{darwin,win32}/**",
+        "!node_modules/onnxruntime-node/bin/napi-v3/linux/arm64/**"
       ]
     },
     "win": {
       "target": [
         "nsis",
         "portable"
+      ],
+      "files": [
+        "index.html",
+        "app.css",
+        "js/**",
+        "vendor/**",
+        "samples/**",
+        "electron/**",
+        "!node_modules/onnxruntime-node/bin/napi-v3/{darwin,linux}/**",
+        "!node_modules/onnxruntime-node/bin/napi-v3/win32/arm64/**"
       ]
-    }
+    },
+    "asarUnpack": [
+      "node_modules/onnxruntime-node/bin/**"
+    ]
+  },
+  "dependencies": {
+    "onnxruntime-node": "1.21.0",
+    "phonemizer": "1.2.1"
   }
 }

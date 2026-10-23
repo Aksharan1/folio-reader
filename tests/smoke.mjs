@@ -320,7 +320,10 @@ try {
   await shot('17-look-up');
   await page.keyboard.press('Escape');
 
+  // the first time, read aloud offers the natural voice; the test takes the system one (stubbed above)
   await page.keyboard.press('KeyR');
+  check('read aloud offers the natural voice', await waitFor(() => /natural voice/i.test(document.querySelector('.modal h2')?.textContent || '')));
+  await page.evaluate(() => document.querySelector('.modal-foot .btn:not(.btn-primary)').click());
   check('read aloud starts on the page', await waitFor(() => document.querySelector('.rd-tts').classList.contains('on') && !!app.reader.doc().querySelector('.er-speaking') && window.__spoken.length > 0));
   const firstSpoken = await page.evaluate(() => window.__spoken[0]);
   check('it reads from the page on screen', /^The paragraph the link points at|^Filler paragraph/.test(firstSpoken), firstSpoken.slice(0, 40));
@@ -502,6 +505,24 @@ try {
 
   await page.evaluate(() => app.importFiles([new File(['not a pdf'], 'broken.pdf')]));
   check('unreadable file reports an error', await waitFor(() => /couldn’t be read/.test(document.querySelector('.toast')?.textContent || '')));
+
+  // The natural voice downloads about 180 MB, so it's only tested when asked (CI does, on every system)
+  if (process.env.FOLIO_VOICE_TEST) {
+    console.log('Natural voice');
+    const voice = await page.evaluate(async () => {
+      const v = window.folioDesktop.voice;
+      let reports = 0;
+      try { await v.install(() => { reports++; }); } catch (e) { return { error: String(e.message || e) }; }
+      const status = await v.status();
+      const t0 = performance.now();
+      const { samples, rate } = await v.speak('It was a dark and stormy night; the rain fell in torrents.', 'af_heart', 1);
+      let peak = 0;
+      for (const x of samples) peak = Math.max(peak, Math.abs(x));
+      return { installed: status.installed, reports, secs: +(samples.length / rate).toFixed(1), ms: Math.round(performance.now() - t0), peak: +peak.toFixed(2) };
+    });
+    check('it downloads, checked against its checksums', voice.installed && voice.reports > 0, JSON.stringify(voice));
+    check('it speaks', voice.secs > 2 && voice.peak > 0.05, `${voice.secs} s of audio in ${voice.ms} ms`);
+  }
 
   console.log('Backup');
   const saved = await page.evaluate(async () => {
