@@ -187,8 +187,3 @@ function fmtSize(bytes) {
   if (bytes < 1048576) return Math.max(1, Math.round(bytes / 1024)) + ' KB';
   return (bytes / 1048576).toFixed(1) + ' MB';
 }
-
-function initials(name) {
-  const parts = (name || '?').replace(/[^\p{L}\s]/gu, ' ').trim().split(/\s+/);
-  return ((parts[0] || '?')[0] + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
-}

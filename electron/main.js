@@ -67,15 +67,18 @@ ipcMain.handle('save-file', async (e, name, data) => {
 ipcMain.handle('app-info', () => ({ version: app.getVersion() }));
 
 /* The window has no native title bar: Folio's own top bar takes its place, and Windows draws the
-   minimise, maximise and close buttons over it. The page tells us the colours under them. */
+   minimise, maximise and close buttons over it. The page tells us the colours under them, and the
+   height of the bar, so the buttons line up with it. */
 const HEX = /^#[0-9a-f]{6}$/i;
-const TITLE_BAR_HEIGHT = 40;
 let titleColors = { color: '#0b0d14', symbolColor: '#e9ebf3' };
+let titleHeight = 68; // the library's top bar, which the window opens on
 
-ipcMain.on('title-bar', (e, color, symbolColor) => {
+ipcMain.on('title-bar', (e, color, symbolColor, height) => {
   if (!win || e.sender !== win.webContents || !HEX.test(color) || !HEX.test(symbolColor)) return;
   titleColors = { color, symbolColor };
-  win.setTitleBarOverlay({ ...titleColors, height: TITLE_BAR_HEIGHT });
+  if (Number.isFinite(height) && height >= 24 && height <= 120) titleHeight = height;
+  // the bar is measured in CSS pixels, which the app's zoom scales
+  win.setTitleBarOverlay({ ...titleColors, height: Math.round(titleHeight * win.webContents.getZoomFactor()) });
   win.setBackgroundColor(color);
 });
 
@@ -111,7 +114,7 @@ async function createWindow() {
     title: 'Folio',
     backgroundColor: titleColors.color,
     titleBarStyle: 'hidden',
-    titleBarOverlay: { ...titleColors, height: TITLE_BAR_HEIGHT },
+    titleBarOverlay: { ...titleColors, height: titleHeight },
     show: false,
     icon: app.isPackaged ? undefined : join(ROOT, 'build', 'icon.png'),
     webPreferences: {

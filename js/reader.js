@@ -200,6 +200,8 @@ ${R} body *:not(mark){color:inherit !important;background-color:transparent !imp
 ${R} body a, ${R} body a *{color:${link} !important;}
 img{max-width:100%;height:auto;}
 svg{max-width:100%;}
+/* a picture fits on one page, rather than being cut across two (the zoom scales vh too) */
+img,svg{max-height:calc(${(10000 / s.fontSize).toFixed(2)}vh - ${2 * m.vert}px);object-fit:contain;}
 ${famDecl}
 ${alignDecl}
 body,p,li,dd,dt,blockquote,pre{line-height:${ls} !important;}

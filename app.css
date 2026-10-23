@@ -468,13 +468,21 @@ body.reading .shell { display: none; }
   cursor: pointer; transition: border-color .15s, transform .15s;
 }
 .author:hover { border-color: var(--line-strong); transform: translateY(-2px); }
-.avatar { width: 46px; height: 46px; flex: none; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 650; font-size: 15px; }
+/* up to three of the author's covers, fanned out behind the first; the fan is a fixed width so names line up */
+.author-covers { position: relative; flex: none; width: 76px; height: 66px; }
+.author-covers .cover {
+  position: absolute; left: 0; bottom: 0; width: 44px; border-radius: 4px;
+  box-shadow: 0 0 0 1.5px var(--surface), 0 6px 14px rgba(0, 0, 0, .35);
+  transform-origin: 50% 100%; transition: transform .2s;
+}
+.author-covers .cover:nth-child(1) { z-index: 3; }
+.author-covers .cover:nth-child(2) { z-index: 2; transform: translateX(14px) rotate(7deg) scale(.94); }
+.author-covers .cover:nth-child(3) { z-index: 1; transform: translateX(27px) rotate(14deg) scale(.88); }
+.author:hover .cover:nth-child(2) { transform: translateX(17px) rotate(10deg) scale(.94); }
+.author:hover .cover:nth-child(3) { transform: translateX(32px) rotate(19deg) scale(.88); }
 .author-meta { flex: 1; min-width: 0; }
 .author-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.author-count { font-size: 12.5px; color: var(--ink-3); }
-.author-covers { display: flex; }
-.author-covers .cover { width: 28px; border-radius: 3px; box-shadow: 0 0 0 2px var(--surface), 0 4px 10px rgba(0, 0, 0, .4); }
-.author-covers .cover + .cover { margin-left: -12px; }
+.author-count { margin-top: 2px; font-size: 12.5px; color: var(--ink-3); }
 
 /* ---------- settings ---------- */
 
@@ -620,8 +628,9 @@ body.reading .toast { bottom: 72px; }
   -webkit-app-region: drag;
 }
 .rd-top button { -webkit-app-region: no-drag; }
-/* anything floating over a top bar takes clicks, rather than dragging the window */
-.menu, .popover, .pop-card, .drawer, .sel-bar, .modal-backdrop, .toast, .drop-overlay { -webkit-app-region: no-drag; }
+/* anything floating over a top bar takes clicks, rather than dragging the window. The drop overlay
+   stays in the page while hidden, covering the whole window, so it only opts out while it shows. */
+.menu, .popover, .pop-card, .drawer, .sel-bar, .modal-backdrop, .toast, .drop-overlay.on { -webkit-app-region: no-drag; }
 .rd-left { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
 .rd-title { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 14px; }
 .rd-book { font-weight: 600; }
@@ -848,7 +857,7 @@ body.reading .toast { bottom: 72px; }
   .nav-scrim { position: fixed; inset: 0; z-index: 90; background: rgba(0, 0, 0, .5); display: none; }
   body.nav-open .nav-scrim { display: block; }
   .nav-toggle { display: inline-grid; }
-  .topbar { padding: 0 16px; gap: 10px; height: 60px; }
+  .topbar { padding: 0 calc(16px + var(--window-buttons)) 0 16px; gap: 10px; height: 60px; }
   .topbar .btn-primary > span:not(.ic) { display: none; }
   .topbar .btn-primary { width: 40px; padding: 0; }
   .search-kbd, .view-toggle { display: none !important; }
@@ -865,7 +874,7 @@ body.reading .toast { bottom: 72px; }
   .popover .range { width: 140px; }
   .drawer { width: 100vw; }
   .rd-author, .rd-sep { display: none; }
-  .rd-top { gap: 6px; padding: 0 6px; }
+  .rd-top { gap: 6px; padding: 0 calc(6px + var(--window-buttons)) 0 6px; }
   .rd-right .icon-btn { width: 34px; }
   .rd-bottom { padding: 0 14px; gap: 12px; }
   .rd-page { min-width: 0; }

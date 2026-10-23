@@ -805,11 +805,9 @@ class App {
     }
     const grid = h('div.author-grid');
     for (const a of authors) {
-      const hue = hashStr(a.name) % 360;
       const card = h('div.author', { tabindex: '0' },
-        h('div.avatar', { style: { background: `linear-gradient(140deg, hsl(${hue} 55% 46%), hsl(${(hue + 40) % 360} 55% 30%))` } }, initials(a.name)),
-        h('div.author-meta', h('div.author-name', a.name), h('div.author-count', a.books.length + (a.books.length === 1 ? ' book' : ' books'))),
         h('div.author-covers', a.books.slice(0, 3).map((r) => this.coverEl(r))),
+        h('div.author-meta', h('div.author-name', a.name), h('div.author-count', a.books.length + (a.books.length === 1 ? ' book' : ' books'))),
       );
       grid.appendChild(this.activate(card, () => { this.view = 'library'; this.filter = 'all'; this.author = a.name; this.renderLibrary(); }));
     }
@@ -1072,13 +1070,15 @@ class App {
   }
 
   /* Windows draws its minimise, maximise and close buttons over the top bar: give them the
-     colours of whatever is under them, the library or the reader's page */
+     colours of whatever is under them, the library or the reader's page, and the bar's height */
   syncTitleBar() {
     const reading = this.screen === 'read';
     const cs = getComputedStyle(reading ? this.readScreen : document.documentElement);
     const bg = cssHex(cs.getPropertyValue(reading ? '--rd-bg' : '--bg'));
     const ink = cssHex(cs.getPropertyValue(reading ? '--rd-fg' : '--ink-2'));
-    if (bg && ink) window.folioDesktop.setTitleBar(bg, ink);
+    const bar = reading ? this.rdTop : this.topbar;
+    // clientHeight leaves out the bar's bottom border, so the buttons don't cover it
+    if (bg && ink) window.folioDesktop.setTitleBar(bg, ink, bar ? bar.clientHeight : 0);
   }
 
   setPref(key, value, rerender) {
@@ -1861,6 +1861,7 @@ class App {
     });
     window.addEventListener('message', (ev) => this.frameMessage(ev));
     window.addEventListener('resize', () => {
+      this.syncTitleBar();
       this.closeMenu();
       this.hideSelBar();
       this.hidePop();

@@ -17,9 +17,9 @@ contextBridge.exposeInMainWorld('folioDesktop', {
   saveFile(name, data) {
     return ipcRenderer.invoke('save-file', name, data);
   },
-  // colours for the window buttons Windows draws over the top bar, as #rrggbb
-  setTitleBar(color, symbolColor) {
-    ipcRenderer.send('title-bar', color, symbolColor);
+  // colours for the window buttons Windows draws over the top bar, as #rrggbb, and the bar's height in CSS pixels
+  setTitleBar(color, symbolColor, height) {
+    ipcRenderer.send('title-bar', color, symbolColor, height);
   },
   // { version }
   appInfo() {
