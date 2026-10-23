@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.3.0
 
 ### Added
 - A welcome on first launch: Folio's book opens, you pick the page theme you like and watch the app change to it, then add books, a folder or a free classic. It shows once, and Escape skips it.
