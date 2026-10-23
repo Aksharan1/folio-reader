@@ -416,23 +416,31 @@ try {
       hidden: getComputedStyle(document.querySelector('.rd-tts, .rd-panel.no-comic')).display === 'none',
     };
   });
+  const label = (text) => waitFor((t) => document.querySelector('.rd-page')?.textContent === t, 20000, text);
+  await label('Page 1 of 6');
+  await sleep(400);
   let v = await view();
   check('manga opens as pictures, right to left', v.comic && v.rtl && v.at === 0 && v.partner === null && v.fits, JSON.stringify(v));
   check('pages pair up, with spreads on their own', v.units === '[[0],[1,2],[3],[4,5]]', v.units);
   check('text-only tools are hidden', v.hidden);
-  await page.keyboard.press('ArrowLeft');
-  await waitFor(() => app.reader.spineIndex === 1 && !app.reader.flipping);
-  await frameReady();
+  // one key per turn, each waiting until the page has settled and the app's turn lock has passed
+  const turnTo = async (key, at, label) => {
+    await page.keyboard.press(key);
+    await waitFor((at, label) => app.reader.spineIndex === at && !app.reader.flipping && document.querySelector('.rd-page').textContent === label, 20000, at, label);
+    await frameReady();
+    await sleep(400);
+  };
+  await turnTo('ArrowLeft', 1, 'Pages 2–3 of 6');
   v = await view();
   check('← turns forward, first page on the right', v.at === 1 && v.partner === 2 && v.leadRight && v.fits && /Pages 2–3 of 6/.test(v.label), JSON.stringify(v));
-  await page.keyboard.press('ArrowLeft');
-  await waitFor(() => app.reader.spineIndex === 3 && !app.reader.flipping);
-  await page.keyboard.press('ArrowRight');
-  await waitFor(() => app.reader.spineIndex === 1 && !app.reader.flipping);
+  await turnTo('ArrowLeft', 3, 'Page 4 of 6');
+  await turnTo('ArrowRight', 1, 'Pages 2–3 of 6');
   check('→ turns back', (await view()).at === 1);
   await page.keyboard.press('KeyD');
   await waitFor(() => !app.reader.rtl && app.reader.frame && !app.reader.frame.classList.contains('er-right'));
   await frameReady();
+  await label('Pages 2–3 of 6');
+  await sleep(400);
   v = await view();
   check('D switches to left to right', !v.rtl && !v.leadRight && v.partner === 2, JSON.stringify(v));
   await page.keyboard.press('KeyT');
@@ -441,6 +449,7 @@ try {
   await page.keyboard.press('Escape');
   await page.evaluate(() => app.setReading({ fit: 'width' }));
   await frameReady();
+  await label('Page 2 of 6');
   v = await view();
   check('fit to width shows one page at a time', v.partner === null && /Page 2 of 6/.test(v.label), JSON.stringify(v));
   await page.evaluate(() => app.setReading({ fit: 'page' }));
