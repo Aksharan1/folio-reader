@@ -452,6 +452,15 @@ try {
   await turnTo('ArrowLeft', 3, 'Page 4 of 6');
   await turnTo('ArrowRight', 1, 'Pages 2–3 of 6');
   check('→ turns back', (await view()).at === 1);
+  // in a spread each page is pushed against the fold, so the pair meets in the middle
+  const fold = await page.evaluate(() => app.reader.pages().map((f) => (f.classList.contains('er-right') ? 'right ' : 'left ') + getComputedStyle(f.contentDocument.querySelector('img.er-pic')).objectPosition));
+  check('the two pages meet at the fold', fold.length === 2 && fold.every((p) => p.startsWith('left') ? p.includes('100%') : p.startsWith('right 0%')), JSON.stringify(fold));
+  // quick presses all count: two in a row go two spreads on (to the last pair), then back again
+  for (let i = 0; i < 2; i++) await page.keyboard.press('ArrowLeft');
+  check('quick turns are not lost', await waitFor(() => app.reader.spineIndex === 4 && !app.turning, 20000), String(await page.evaluate(() => app.reader.spineIndex)));
+  for (let i = 0; i < 2; i++) await page.keyboard.press('ArrowRight');
+  await waitFor(() => app.reader.spineIndex === 1 && !app.turning, 20000);
+  await frameReady();
   await page.keyboard.press('KeyD');
   await waitFor(() => !app.reader.rtl && app.reader.frame && !app.reader.frame.classList.contains('er-right'));
   await frameReady();

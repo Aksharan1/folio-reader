@@ -74,6 +74,8 @@ const SAMPLE_TEXT = [
 class App {
   constructor() {
     this.screen = 'library';       // library | read
+    this.turning = false;          // a page turn is under way
+    this.turnQueue = [];           // turns asked for meanwhile, done next (+1 forward, -1 back)
     this.view = 'library';         // a NAV id or 'settings'
     this.query = '';
     this.filter = 'all';
@@ -1424,15 +1426,34 @@ class App {
   }
 
   /* one page per press, however it was requested (key, click, wheel, button) */
+  /* Presses that come while a page is still turning wait their turn instead of being lost, and
+     while more are waiting the pages go by without the animation, to catch up. */
   turn(dir) {
-    if (this.navLock || !this.reader.book) return;
-    this.navLock = true;
+    if (!this.reader.book) return;
     this.hideSelBar();
     this.hidePop();
-    setTimeout(() => { this.navLock = false; }, 260);
-    const go = dir > 0 ? this.reader.nextPage() : this.reader.prevPage();
-    go.then(() => { this.refreshProgress(); this.speech.restart(); });
     this.lastActivity = Date.now();
+    if (this.turning) {
+      if (this.turnQueue.length < 4) this.turnQueue.push(dir);
+      return;
+    }
+    this.runTurns(dir);
+  }
+
+  async runTurns(dir) {
+    this.turning = true;
+    try {
+      for (let d = dir; d; d = this.turnQueue.shift()) {
+        this.reader.hurry = this.turnQueue.length > 0;
+        await (d > 0 ? this.reader.nextPage() : this.reader.prevPage());
+        this.refreshProgress();
+      }
+    } finally {
+      this.reader.hurry = false;
+      this.turning = false;
+      this.turnQueue = [];
+      this.speech.restart();
+    }
   }
 
   setSpeaking(on) {

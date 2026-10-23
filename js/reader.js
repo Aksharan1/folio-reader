@@ -105,6 +105,7 @@ class Reader {
     this.rtl = false;              // its pages turn right to left
     this.aspects = [];             // comics: each page's width / height
     this.units = [];               // comics: the pages shown together in the two-page view
+    this.pageShape = 0.7;          // comics: a typical page's width / height
     this.partner = null;           // comics: the second page on screen in the two-page view
   }
 
@@ -197,6 +198,8 @@ class Reader {
       : meta.direction === 'rtl' ? true : meta.direction === 'ltr' ? false
       : !this.library || this.library.prefs.comicRtl !== false;
     this.aspects = await Promise.all(pics.map((src) => (src ? aspectOf(src) : 0)));
+    const tall = this.aspects.filter((a) => a > 0 && a <= 1).sort((a, b) => a - b);
+    this.pageShape = tall.length ? tall[Math.floor(tall.length / 2)] : 0.7;
     /* the two-page view pairs pages like a printed book: the cover alone, then two at a time,
        with wide pictures (double-page spreads) and pages without a picture on their own */
     const alone = (i) => !pics[i] || this.aspects[i] > 1;
@@ -272,12 +275,18 @@ class Reader {
        on classed elements (body.calibre, p.txt…): the :not(#id) prefix lifts our specificity
        above any class selector. Inner backgrounds are cleared so the page colour shows through. */
     const R = ':root:not(#er-theme)';
-    /* comic pages: the picture fills the page, and in the two-page view the pages meet at the fold */
+    /* comic pages: the picture fills the page, scaled up or down to fit, and in the two-page view
+       each one is pushed against the fold so the pair meets in the middle like a printed book */
     const fitWidth = s.fit === 'width';
+    const spine = side === 'left' ? 'right' : side === 'right' ? 'left' : 'center';
+    const pairH = side !== 'single' && this.pairHeight ? this.pairHeight : 0;
+    const fit = fitWidth ? 'width:100%;height:auto;'
+      : pairH ? `width:100vw;height:${pairH}px;margin-top:calc((100vh - ${pairH}px) / 2);object-fit:contain;object-position:${spine} center;`
+      : `width:100vw;height:100vh;object-fit:contain;object-position:${spine} center;`;
     const comicCss = `
-${R}{background:${bg} !important;scrollbar-width:none;}
-${R} body{background:${bg} !important;color:${fg} !important;margin:0;padding:0;${fitWidth ? '' : `min-height:100vh;display:flex;align-items:center;justify-content:${side === 'left' ? 'flex-end' : side === 'right' ? 'flex-start' : 'center'};`}}
-img.er-pic{display:block;margin:0 auto;${fitWidth ? 'width:100%;height:auto;' : 'max-width:100%;max-height:100vh;width:auto;height:auto;object-fit:contain;'}user-select:none;-webkit-user-drag:none;}
+${R}{background:${bg} !important;scrollbar-width:none;margin:0;padding:0;overflow:hidden;}
+${R} body{background:${bg} !important;color:${fg} !important;margin:0;padding:0;}
+img.er-pic{display:block;margin-left:auto;margin-right:auto;${fit}user-select:none;-webkit-user-drag:none;}
 `;
     const css = this.comic ? comicCss : `
 ${R}{background:${bg} !important;zoom:${s.fontSize / 100};scrollbar-width:none;margin:0 !important;padding:0 !important;}
@@ -635,6 +644,15 @@ try{
       this.htmlCache.set(i, html);
     }
 
+    /* a pair of comic pages shares one height, the larger that lets both fit their half */
+    this.pairHeight = 0;
+    if (this.comic && spread && this.settings.fit !== 'width') {
+      const stageEl = document.querySelector('.read-stage');
+      const W = stageEl ? stageEl.clientWidth / 2 : window.innerWidth / 2, H = stageEl ? stageEl.clientHeight : window.innerHeight;
+      const fitted = [spineIndex, partner].map((i) => (this.aspects[i] > 0 ? Math.min(H, W / this.aspects[i]) : H));
+      this.pairHeight = Math.floor(Math.min(...fitted));
+    }
+
     const make = (side, index = spineIndex) => {
       const f = document.createElement('iframe');
       f.className = 'er-frame' + (side === 'right' ? ' er-right' : '');
@@ -643,7 +661,7 @@ try{
       f.loaded = new Promise((res) => { f.addEventListener('load', res); });
       f.srcdoc = this.buildFrameHtml(index, frac, query, nth, side, anchor);
       // during a page turn the new page waits, unseen, for flipIn to bring it in
-      if (this.flipDir && !this.animateOff()) f.style.opacity = '0';
+      if (this.flipDir && !this.animateOff() && !this.hurry) f.style.opacity = '0';
       return f;
     };
     /* in a right-to-left comic the first page of a pair is on the right */
@@ -725,7 +743,7 @@ try{
     const w = stage ? stage.clientWidth : window.innerWidth;
     const h = stage ? stage.clientHeight : window.innerHeight;
     // two comic pages fit side by side sooner than two columns of text
-    return this.comic ? w >= 760 && w >= h * 1.15 : w >= 1100 && w >= h * 1.4;
+    return this.comic ? w >= 2 * h * (this.pageShape || 0.7) * 0.85 : w >= 1100 && w >= h * 1.4;
   }
 
   /* two-page view: the left page always shows an even page of the section, the right one
@@ -861,7 +879,7 @@ try{
      Web animations run on the compositor, and a quick second turn simply takes over. */
   async flipOut(dir) {
     this.flipDir = dir;
-    if (!this.frame || this.animateOff()) return;
+    if (!this.frame || this.animateOff() || this.hurry) return;
     this.flipping = true;
     this.turnOut = this.pages().map((p) => p.animate(
       [{ transform: 'none', opacity: 1 }, { transform: `translateX(${-dir * 14}px)`, opacity: 0 }],
@@ -874,7 +892,7 @@ try{
     const pages = this.pages();
     const out = this.turnOut || [];
     this.turnOut = null;
-    if (!pages.length || this.animateOff()) {
+    if (!pages.length || this.animateOff() || this.hurry) {
       out.forEach((a) => a.cancel());
       pages.forEach((p) => { p.style.opacity = ''; });
       this.flipping = false;
