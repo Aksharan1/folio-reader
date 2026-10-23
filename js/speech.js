@@ -1,5 +1,5 @@
 /* =========================================================
-   Read aloud — speaks the book with the voices installed in Windows,
+   Read aloud — speaks the book with the voices installed on the computer,
    following along page by page
    ========================================================= */
 

@@ -12,6 +12,7 @@ const FORMAT_OF = {
   html: 'HTML', htm: 'HTML', xhtml: 'HTML',
   md: 'Markdown', markdown: 'Markdown',
   txt: 'Text',
+  cbz: 'CBZ', cbr: 'CBR', cbt: 'CBT', cb7: 'CB7',
 };
 const BOOK_ACCEPT = Object.keys(FORMAT_OF).map((e) => '.' + e).join(',') + ',.fb2.zip,application/epub+zip';
 const CHUNK_CHARS = 60000;   // split long sections so pagination stays quick
@@ -49,8 +50,8 @@ function decodeText(bytes, declared) {
   return new TextDecoder('windows-1252').decode(bytes);
 }
 
-const IMAGE_TYPES = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', bmp: 'image/bmp' };
-const EXT_OF_TYPE = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif', 'image/webp': 'webp', 'image/svg+xml': 'svg', 'image/bmp': 'bmp', 'text/css': 'css' };
+const IMAGE_TYPES = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', bmp: 'image/bmp', avif: 'image/avif' };
+const EXT_OF_TYPE = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif', 'image/webp': 'webp', 'image/svg+xml': 'svg', 'image/bmp': 'bmp', 'image/avif': 'avif', 'text/css': 'css' };
 
 function sniffType(b) {
   if (b[0] === 0xFF && b[1] === 0xD8) return 'image/jpeg';
@@ -58,6 +59,7 @@ function sniffType(b) {
   if (b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46) return 'image/gif';
   if (b[0] === 0x52 && b[1] === 0x49 && b[8] === 0x57 && b[9] === 0x45) return 'image/webp';
   if (b[0] === 0x42 && b[1] === 0x4D) return 'image/bmp';
+  if (b[4] === 0x66 && b[5] === 0x74 && b[6] === 0x79 && b[7] === 0x70 && b[8] === 0x61 && b[9] === 0x76) return 'image/avif';
   return '';
 }
 
@@ -66,7 +68,9 @@ function sniffType(b) {
             sections: [{ title, body (HTML string) | doc (Document) }],
             toc: [{ label, section, depth }],
             resources: [{ path, data, type }],
-            cover: { data, type } | null } */
+            cover: { data, type } | null,
+            comic: true for a book of page images, shown one picture per page,
+            direction: 'rtl' or 'ltr' when the file says which way its pages turn } */
 
 const BASE_CSS = `
 .center, .subtitle, .image { text-align: center; }
@@ -80,6 +84,10 @@ table { border-collapse: collapse; }
 td, th { border: 1px solid rgba(128,128,128,.4); padding: .2em .5em; vertical-align: top; }
 pre { white-space: pre-wrap; }
 `;
+
+/* comics and scanned pages: one picture per section, which the reader fits to the screen */
+const COMIC_CSS = '.page, .page img { margin: 0; padding: 0; } .page img { display: block; }';
+const pictureSection = (path, n) => ({ title: 'Page ' + n, body: `<div class="page"><img src="${path}" alt="Page ${n}"/></div>` });
 
 function sectionFile(i) {
   return 's' + String(i + 1).padStart(4, '0') + '.xhtml';
@@ -138,7 +146,9 @@ async function buildEpub(book) {
     spine.push(`<itemref idref="s${i}"/>`);
   });
   (book.resources || []).forEach((r, i) => {
-    zip.file('OEBPS/' + r.path, r.data);
+    // pictures are compressed already; deflating them again only costs time
+    const packed = /^image\/(jpeg|png|gif|webp|avif)$/.test(r.type || '');
+    zip.file('OEBPS/' + r.path, r.data, packed ? { compression: 'STORE' } : undefined);
     manifest.push(`<item id="r${i}" href="${escXml(r.path)}" media-type="${escXml(r.type || 'application/octet-stream')}"/>`);
   });
   let coverMeta = '';
@@ -161,12 +171,13 @@ ${book.author ? `<dc:creator>${escXml(book.author)}</dc:creator>` : ''}
 <dc:language>${escXml(book.lang || 'en')}</dc:language>
 ${book.description ? `<dc:description>${escXml(book.description)}</dc:description>` : ''}
 <meta property="dcterms:modified">2000-01-01T00:00:00Z</meta>
+${book.comic ? '<meta property="rendition:layout">pre-paginated</meta>' : ''}
 ${coverMeta}
 </metadata>
 <manifest>
 ${manifest.join('\n')}
 </manifest>
-<spine>
+<spine${book.direction ? ` page-progression-direction="${book.direction}"` : ''}>
 ${spine.join('\n')}
 </spine>
 </package>`);
@@ -812,7 +823,12 @@ async function fromPdf(bytes, name) {
     page.cleanup();
   }
   const chars = pages.reduce((s, p) => s + p.reduce((t, l) => t + l.text.length, 0), 0);
-  if (chars < pdf.numPages * 25) throw bookError('This PDF has no selectable text (it’s probably scanned), so it can’t be reflowed');
+  // scanned books, comics and manga have no text layer: keep each page as a picture instead
+  if (chars < pdf.numPages * 25) {
+    const out = await pdfPictures(pdf, name);
+    await task.destroy();
+    return out;
+  }
 
   // 2. drop running headers, footers and page numbers: lines at the top or bottom of a page,
   //    set apart from the text by extra space, that are a number or repeat across pages
@@ -927,9 +943,152 @@ async function fromPdf(bytes, name) {
 
   let info = {};
   try { info = (await pdf.getMetadata()).info || {}; } catch (e) {}
-  const junk = (t) => !t || /^(untitled|microsoft word|document\d*$)|\.(docx?|pdf|indd|tex)$/i.test(t.trim());
   await task.destroy();
-  return { title: junk(info.Title) ? bookBaseName(name) : info.Title.trim(), author: (info.Author || '').trim(), cover, sections, toc };
+  return { title: pdfTitle(info, name), author: (info.Author || '').trim(), cover, sections, toc };
+}
+
+/* the PDF's own title, unless it's one a program filled in */
+function pdfTitle(info, name) {
+  const t = (info.Title || '').trim();
+  return !t || /^(untitled|microsoft word|document\d*$|about:blank$)|\.(docx?|pdf|indd|tex|jpe?g|tiff?)$/i.test(t) ? bookBaseName(name) : t;
+}
+
+/* every page of a PDF drawn as a picture, about as tall as a large screen */
+async function pdfPictures(pdf, name) {
+  const resources = [], sections = [];
+  const canvas = document.createElement('canvas');
+  for (let n = 1; n <= pdf.numPages; n++) {
+    const page = await pdf.getPage(n);
+    const base = page.getViewport({ scale: 1 });
+    const vp = page.getViewport({ scale: Math.min(4, 1800 / base.height, 2400 / base.width) });
+    canvas.width = Math.round(vp.width);
+    canvas.height = Math.round(vp.height);
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    await page.render({ canvasContext: ctx, viewport: vp }).promise;
+    page.cleanup();
+    const blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.86));
+    if (!blob) continue;
+    const path = 'pages/p' + String(n).padStart(4, '0') + '.jpg';
+    resources.push({ path, data: new Uint8Array(await blob.arrayBuffer()), type: 'image/jpeg' });
+    sections.push(pictureSection(path, n));
+  }
+  if (!sections.length) throw bookError('This PDF couldn’t be read');
+  let info = {};
+  try { info = (await pdf.getMetadata()).info || {}; } catch (e) {}
+  return {
+    title: pdfTitle(info, name),
+    author: (info.Author || '').trim(),
+    cover: { data: resources[0].data, type: 'image/jpeg' },
+    comic: true,
+    css: COMIC_CSS,
+    resources, sections, toc: [],
+  };
+}
+
+/* ---------- comics and manga (CBZ, CBR, CBT): one picture per page ---------- */
+
+/* a tar archive's files, as [{ name, data }] */
+function untar(bytes) {
+  const out = [];
+  const str = (at, len) => new TextDecoder().decode(bytes.subarray(at, at + len)).replace(/\0[\s\S]*$/, '');
+  let longName = '';
+  for (let at = 0; at + 512 <= bytes.length;) {
+    if (!bytes[at]) break;   // two empty blocks end the archive
+    const size = parseInt(str(at + 124, 12).trim(), 8) || 0;
+    const type = String.fromCharCode(bytes[at + 156]);
+    const prefix = str(at + 257, 6) === 'ustar' ? str(at + 345, 155) : '';
+    const data = bytes.subarray(at + 512, at + 512 + size);
+    if (type === 'L') longName = new TextDecoder().decode(data).replace(/\0[\s\S]*$/, '');
+    else {
+      if (type === '0' || type === '\0') out.push({ name: longName || (prefix ? prefix + '/' : '') + str(at, 100), data });
+      longName = '';
+    }
+    at += 512 + Math.ceil(size / 512) * 512;
+  }
+  return out;
+}
+
+async function unrar(bytes) {
+  const { createExtractorFromData } = await import(vendorUrl('unrar.js'));
+  const wasmBinary = await (await fetch(vendorUrl('unrar.wasm'))).arrayBuffer();
+  let files;
+  try {
+    const extractor = await createExtractorFromData({ wasmBinary, data: bytes.slice().buffer });
+    files = [...extractor.extract().files];
+  } catch (e) {
+    throw bookError(/password/i.test(e && e.message) ? 'This comic is password-protected' : 'This RAR archive couldn’t be read');
+  }
+  return files.filter((f) => f.extraction).map((f) => ({ name: f.fileHeader.name, data: f.extraction }));
+}
+
+/* the files inside a comic archive, whatever its extension says it is */
+async function comicFiles(bytes) {
+  const magic = new TextDecoder('latin1').decode(bytes.subarray(0, 8));
+  if (magic.startsWith('PK')) {
+    const zip = await JSZip.loadAsync(bytes);
+    const files = Object.values(zip.files).filter((f) => !f.dir);
+    return Promise.all(files.map(async (f) => ({ name: f.name, data: await f.async('uint8array') })));
+  }
+  if (magic.startsWith('Rar!')) return unrar(bytes);
+  if (magic.startsWith('7z\xBC\xAF')) throw bookError('7-Zip comics (CB7) aren’t supported yet. Re-pack it as a CBZ (a zip of the pages) to read it.');
+  if (new TextDecoder('latin1').decode(bytes.subarray(257, 262)) === 'ustar') return untar(bytes);
+  throw bookError('This doesn’t look like a comic archive');
+}
+
+/* ComicInfo.xml, the metadata file comic tools put next to the pages */
+function comicInfo(text) {
+  const root = xmlDoc(text).documentElement;
+  const get = (n) => { const el = kid(root, n); return el ? el.textContent.replace(/\s+/g, ' ').trim() : ''; };
+  const manga = get('Manga');
+  const series = get('Series');
+  const number = get('Number'), volume = get('Volume');
+  const numbered = series && (volume ? series + ' Vol. ' + volume : number ? series + ' #' + number : series);
+  return {
+    title: numbered ? (get('Title') && get('Title') !== series ? numbered + ': ' + get('Title') : numbered) : get('Title'),
+    author: [...new Set([get('Writer'), get('Penciller')].join(',').split(',').map((s) => s.trim()).filter(Boolean))].join(', '),
+    description: get('Summary'),
+    lang: get('LanguageISO'),
+    direction: /^yes/i.test(manga) ? (/lefttoright/i.test(manga) ? 'ltr' : 'rtl') : /^no$/i.test(manga) ? 'ltr' : '',
+  };
+}
+
+async function fromComic(bytes, name) {
+  const files = await comicFiles(bytes);
+  const hidden = (n) => /(^|\/)(__MACOSX|\.)/.test(n) || /(^|\/)thumbs\.db$/i.test(n);
+  const pages = files
+    .filter((f) => !hidden(f.name) && IMAGE_TYPES[(f.name.split('.').pop() || '').toLowerCase()] && f.data.length)
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+  if (!pages.length) throw bookError('No pictures were found in this comic');
+  const infoFile = files.find((f) => /(^|\/)comicinfo\.xml$/i.test(f.name));
+  const info = infoFile ? comicInfo(decodeText(infoFile.data)) : {};
+
+  const resources = [], sections = [], toc = [];
+  let folder = null;
+  pages.forEach((p, i) => {
+    const type = sniffType(p.data) || IMAGE_TYPES[p.name.split('.').pop().toLowerCase()];
+    const path = 'pages/p' + String(i + 1).padStart(4, '0') + '.' + (EXT_OF_TYPE[type] || 'jpg');
+    resources.push({ path, data: p.data, type });
+    sections.push(pictureSection(path, i + 1));
+    // each folder in the archive is usually a chapter
+    const dir = p.name.includes('/') ? p.name.slice(0, p.name.lastIndexOf('/')) : '';
+    if (dir !== folder) {
+      folder = dir;
+      if (dir) toc.push({ label: dir.split('/').pop().replace(/_+/g, ' ').trim(), section: i, depth: 0 });
+    }
+  });
+  return {
+    title: info.title || bookBaseName(name),
+    author: info.author || '',
+    lang: info.lang || '',
+    description: info.description || '',
+    cover: { data: pages[0].data, type: resources[0].type },
+    comic: true,
+    direction: info.direction || '',
+    css: COMIC_CSS,
+    resources, sections, toc: toc.length > 1 ? toc : [],
+  };
 }
 
 /* ---------- entry point ---------- */
@@ -938,6 +1097,7 @@ const CONVERTERS = {
   MOBI: fromMobi, AZW: fromMobi, AZW3: fromMobi,
   FB2: fromFb2, PDF: fromPdf, DOCX: fromDocx,
   HTML: fromHtml, Markdown: fromMarkdown, Text: fromText,
+  CBZ: fromComic, CBR: fromComic, CBT: fromComic, CB7: fromComic,
 };
 
 /* resolves to { bytes (an EPUB), format } */

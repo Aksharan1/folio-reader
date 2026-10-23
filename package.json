@@ -1,8 +1,8 @@
 {
   "name": "folio-reader",
   "productName": "Folio",
-  "version": "1.1.0",
-  "description": "A fast, private e-book reader for Windows. EPUB, Kindle, PDF, FB2, Word, Markdown and text.",
+  "version": "1.2.0",
+  "description": "A fast, private e-book and manga reader for Windows, macOS and Linux. EPUB, Kindle, PDF, comics (CBZ, CBR), FB2, Word, Markdown and text.",
   "author": "Aksharan",
   "homepage": "https://github.com/Aksharan1/folio-reader#readme",
   "repository": {
@@ -23,15 +23,21 @@
     "azw3",
     "fb2",
     "pdf",
+    "manga",
+    "comics",
+    "cbz",
+    "cbr",
     "reader",
     "electron",
     "windows",
+    "macos",
+    "linux",
     "offline",
     "privacy"
   ],
   "scripts": {
     "start": "electron .",
-    "dist": "electron-builder --win",
+    "dist": "electron-builder",
     "test": "node tests/smoke.mjs",
     "screenshots": "node scripts/screenshots.mjs",
     "vendor": "node scripts/vendor.mjs",
@@ -43,6 +49,7 @@
     "epubjs": "^0.3.93",
     "foliate-js": "^1.0.1",
     "jszip": "^3.10.2",
+    "node-unrar-js": "^2.0.2",
     "pdfjs-dist": "^6.4.299",
     "puppeteer": "^25.12.0"
   },
@@ -91,14 +98,18 @@
         "name": "FictionBook",
         "description": "FictionBook e-book",
         "role": "Viewer"
+      },
+      {
+        "ext": [
+          "cbz",
+          "cbr",
+          "cbt"
+        ],
+        "name": "Comic Book",
+        "description": "Comic book archive",
+        "role": "Viewer"
       }
     ],
-    "win": {
-      "target": [
-        "nsis",
-        "portable"
-      ]
-    },
     "portable": {
       "artifactName": "Folio-Portable-${version}.${ext}"
     },
@@ -106,6 +117,48 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "artifactName": "Folio-Setup-${version}.${ext}"
+    },
+    "mac": {
+      "category": "public.app-category.books",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "identity": "-",
+      "hardenedRuntime": false,
+      "artifactName": "Folio-${version}-mac-${arch}.${ext}"
+    },
+    "dmg": {
+      "title": "Folio ${version}"
+    },
+    "linux": {
+      "category": "Office",
+      "synopsis": "A fast, private e-book and manga reader",
+      "maintainer": "Aksharan <110070846+Aksharan1@users.noreply.github.com>",
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "artifactName": "Folio-${version}-linux-${arch}.${ext}",
+      "mimeTypes": [
+        "application/epub+zip",
+        "application/x-mobipocket-ebook",
+        "application/vnd.comicbook+zip",
+        "application/vnd.comicbook-rar",
+        "application/x-fictionbook+xml",
+        "application/pdf"
+      ]
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
     }
   }
 }

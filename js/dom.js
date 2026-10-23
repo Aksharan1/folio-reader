@@ -99,6 +99,11 @@ function logoMark() {
   return span;
 }
 
+/* the shortcut modifier key as the platform names it; the stylesheet places the window buttons by platform */
+const PLATFORM = (window.folioDesktop && window.folioDesktop.platform) || '';
+const MOD = PLATFORM === 'darwin' ? '⌘' : 'Ctrl';
+document.documentElement.dataset.platform = PLATFORM;
+
 function iconButton(name, label, onclick, cls) {
   return h('button.icon-btn' + (cls ? '.' + cls : ''), { type: 'button', 'aria-label': label, title: label, onclick }, icon(name));
 }

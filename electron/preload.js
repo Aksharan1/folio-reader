@@ -2,6 +2,8 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('folioDesktop', {
+  // 'win32', 'darwin' or 'linux'
+  platform: process.platform,
   // Files opened from Explorer ("Open with Folio") or passed on the command line.
   onOpenFiles(cb) {
     ipcRenderer.on('open-files', (e, files) => cb(files));
@@ -17,7 +19,7 @@ contextBridge.exposeInMainWorld('folioDesktop', {
   saveFile(name, data) {
     return ipcRenderer.invoke('save-file', name, data);
   },
-  // colours for the window buttons Windows draws over the top bar, as #rrggbb, and the bar's height in CSS pixels
+  // colours for the window buttons drawn over the top bar, as #rrggbb, and the bar's height in CSS pixels
   setTitleBar(color, symbolColor, height) {
     ipcRenderer.send('title-bar', color, symbolColor, height);
   },

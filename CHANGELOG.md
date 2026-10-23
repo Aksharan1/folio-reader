@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2.0
+
+### Added
+- Comics and manga: CBZ, CBR and CBT files open one picture per page, fitted to the window. Pages pair up in the two-page view like a printed book, with the cover and double-page spreads on their own.
+- Right-to-left reading for manga, read from ComicInfo.xml when the file says so. Press D (or use Aa) to switch; ← then turns to the next page.
+- Fit a comic page to the width to scroll down tall pages and webtoons.
+- Comic contents show thumbnails of every page.
+- Scanned PDFs, and PDF comics and manga, open as page pictures instead of failing.
+- macOS (Apple silicon and Intel) and Linux (AppImage and .deb) builds.
+
 ## 1.1.0
 
 ### Added

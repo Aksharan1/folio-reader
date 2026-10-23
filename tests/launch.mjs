@@ -11,12 +11,16 @@ import { fileURLToPath } from 'node:url';
 const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const electron = createRequire(import.meta.url)('electron');
 
+// Ubuntu's CI runners don't let Chromium set up its sandbox; the test only opens its own files
+export const SANDBOX_ARGS = process.platform === 'linux' && process.env.CI ? ['--no-sandbox'] : [];
+
 export async function launchApp({ port = 9333, protocolTimeout = 120000 } = {}) {
   const profile = mkdtempSync(join(tmpdir(), 'folio-test-'));
   const proc = spawn(electron, [
     ROOT, `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`,
     // keep rendering while the window is covered or unfocused, as it would be in a headless browser
     '--disable-features=CalculateNativeWinOcclusion', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows',
+    ...SANDBOX_ARGS,
   ], { stdio: 'ignore' });
 
   let browser;

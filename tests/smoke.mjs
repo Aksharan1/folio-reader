@@ -5,8 +5,9 @@ import puppeteer from 'puppeteer';
 import JSZip from 'jszip';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { launchApp } from './launch.mjs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { launchApp, SANDBOX_ARGS } from './launch.mjs';
 
 const SHOTS = process.env.SHOTS || '';
 const W = Number(process.env.W) || 1440, H = Number(process.env.H) || 900;
@@ -358,6 +359,113 @@ try {
     check(f.format + ' converts', ok, got ? `${got.sections} sections · contents: ${got.toc.join(' / ')}` : 'missing');
   }
   await page.click('.rd-left .icon-btn');
+
+  console.log('Comics and manga');
+  // pages are drawn in the app: six tall ones and a double-page spread, numbered so they can be told apart
+  const manga = await page.evaluate(async () => {
+    const pagePng = (n, wide) => new Promise((res) => {
+      const c = document.createElement('canvas');
+      c.width = wide ? 1200 : 600; c.height = 900;
+      const g = c.getContext('2d');
+      g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+      g.fillStyle = '#000'; g.font = 'bold 200px sans-serif'; g.fillText(String(n), 200, 500);
+      c.toBlob((b) => b.arrayBuffer().then((a) => res(new Uint8Array(a))), 'image/png');
+    });
+    const zip = new JSZip();
+    zip.file('ComicInfo.xml', '<?xml version="1.0"?><ComicInfo><Series>Test Manga</Series><Volume>2</Volume><Writer>Mika Tester</Writer><Manga>YesAndRightToLeft</Manga></ComicInfo>');
+    // out of order and unpadded on purpose: pages sort by their numbers
+    for (const n of [10, 2, 1, 3, 4, 5]) zip.file(`Chapter 1/${n}.png`, await pagePng(n, n === 4));
+    zip.file('__MACOSX/Chapter 1/._1.png', 'junk');
+    const cbz = new File([await zip.generateAsync({ type: 'uint8array' })], 'test-manga.cbz');
+    // a tar of three pages, written by hand
+    const tarFile = (name, data) => {
+      const head = new Uint8Array(512);
+      const put = (s, at) => { for (let i = 0; i < s.length; i++) head[at + i] = s.charCodeAt(i); };
+      put(name, 0); put('0000644\0', 100); put(data.length.toString(8).padStart(11, '0') + '\0', 124); put('0', 156); put('ustar\0', 257);
+      put('        ', 148);
+      put((head.reduce((a, b) => a + b, 0)).toString(8).padStart(6, '0') + '\0 ', 148);
+      const body = new Uint8Array(Math.ceil(data.length / 512) * 512);
+      body.set(data);
+      return [head, body];
+    };
+    const parts = [];
+    for (const n of [1, 2, 3]) parts.push(...tarFile(`p${n}.png`, await pagePng(n)));
+    const cbt = new File([...parts, new Uint8Array(1024)], 'Western Comic.cbt');
+    await app.importFiles([cbz, cbt]);
+    const rec = app.library.records.find((r) => r.format === 'CBZ');
+    const tar = app.library.records.find((r) => r.format === 'CBT');
+    return { title: rec && rec.title, author: rec && rec.author, pages: rec && rec.chapters, cover: !!(rec && rec.cover), tarPages: tar && tar.chapters };
+  });
+  check('CBZ imports with its ComicInfo', manga.title === 'Test Manga Vol. 2' && manga.author === 'Mika Tester' && manga.pages === 6 && manga.cover, JSON.stringify(manga));
+  check('CBT imports', manga.tarPages === 3, String(manga.tarPages));
+  // RAR can't be written here, so this one is a checked-in file: three pages in a folder
+  await (await page.$('input.hidden-file')).uploadFile(join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'rar-comic.cbr'));
+  check('CBR imports', await waitFor(() => app.library.records.some((r) => r.format === 'CBR' && r.chapters === 3), 30000),
+    await page.evaluate(() => document.querySelector('.toast')?.textContent));
+
+  await page.evaluate(() => { app.setPref('twoPages', true); return app.openBook(app.library.records.find((r) => r.format === 'CBZ')); });
+  await frameReady();
+  const view = () => page.evaluate(() => {
+    const r = app.reader;
+    const pic = (f) => (f && f.contentDocument.querySelector('img.er-pic') ? f.contentDocument.querySelector('img.er-pic').getBoundingClientRect() : null);
+    return {
+      comic: r.comic, rtl: r.rtl, at: r.spineIndex, partner: r.frame2 ? r.partner : null,
+      leadRight: !!(r.frame && r.frame.classList.contains('er-right')),
+      units: JSON.stringify(r.units), label: document.querySelector('.rd-page').textContent,
+      fits: [r.frame, r.frame2].filter(Boolean).every((f) => { const b = pic(f); return b && b.height <= f.clientHeight + 1 && b.width <= f.clientWidth + 1; }),
+      hidden: getComputedStyle(document.querySelector('.rd-tts, .rd-panel.no-comic')).display === 'none',
+    };
+  });
+  let v = await view();
+  check('manga opens as pictures, right to left', v.comic && v.rtl && v.at === 0 && v.partner === null && v.fits, JSON.stringify(v));
+  check('pages pair up, with spreads on their own', v.units === '[[0],[1,2],[3],[4,5]]', v.units);
+  check('text-only tools are hidden', v.hidden);
+  await page.keyboard.press('ArrowLeft');
+  await waitFor(() => app.reader.spineIndex === 1 && !app.reader.flipping);
+  await frameReady();
+  v = await view();
+  check('← turns forward, first page on the right', v.at === 1 && v.partner === 2 && v.leadRight && v.fits && /Pages 2–3 of 6/.test(v.label), JSON.stringify(v));
+  await page.keyboard.press('ArrowLeft');
+  await waitFor(() => app.reader.spineIndex === 3 && !app.reader.flipping);
+  await page.keyboard.press('ArrowRight');
+  await waitFor(() => app.reader.spineIndex === 1 && !app.reader.flipping);
+  check('→ turns back', (await view()).at === 1);
+  await page.keyboard.press('KeyD');
+  await waitFor(() => !app.reader.rtl && app.reader.frame && !app.reader.frame.classList.contains('er-right'));
+  await frameReady();
+  v = await view();
+  check('D switches to left to right', !v.rtl && !v.leadRight && v.partner === 2, JSON.stringify(v));
+  await page.keyboard.press('KeyT');
+  const thumbs = await page.evaluate(() => [...document.querySelectorAll('.page-thumb')].map((b) => b.classList.contains('on')));
+  check('contents show the pages', thumbs.length === 6 && thumbs[1] && thumbs[2] && !thumbs[0], JSON.stringify(thumbs));
+  await page.keyboard.press('Escape');
+  await page.evaluate(() => app.setReading({ fit: 'width' }));
+  await frameReady();
+  v = await view();
+  check('fit to width shows one page at a time', v.partner === null && /Page 2 of 6/.test(v.label), JSON.stringify(v));
+  await page.evaluate(() => app.setReading({ fit: 'page' }));
+  await page.click('.rd-left .icon-btn');
+
+  // a PDF without a text layer, like a scanned book or a manga, keeps its pages as pictures
+  const scanned = await (async () => {
+    const chrome = await puppeteer.launch({ headless: true, args: SANDBOX_ARGS });
+    const pg = await chrome.newPage();
+    await pg.setContent('<style>@page{size:600px 900px;margin:0}body{margin:0}div{width:600px;height:900px;break-after:page;background:linear-gradient(#222,#999)}</style><div></div><div></div>');
+    const pdf = await pg.pdf({ width: '600px', height: '900px', printBackground: true });
+    await chrome.close();
+    return Buffer.from(pdf).toString('base64');
+  })();
+  const scan = await page.evaluate(async (b64) => {
+    await app.importFiles([new File([Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))], 'scanned-pages.pdf')]);
+    const rec = app.library.records.find((r) => r.title === 'scanned-pages');
+    if (!rec) return null;
+    await app.openBook(rec);
+    return { pages: rec.chapters, comic: app.reader.comic, rtl: app.reader.rtl };
+  }, scanned);
+  await frameReady();
+  check('a scanned PDF opens as page pictures', scan && scan.pages === 2 && scan.comic, JSON.stringify(scan));
+  await page.click('.rd-left .icon-btn');
+
   await page.evaluate(() => app.importFiles([new File(['not a pdf'], 'broken.pdf')]));
   check('unreadable file reports an error', await waitFor(() => /couldn’t be read/.test(document.querySelector('.toast')?.textContent || '')));
 
@@ -427,7 +535,7 @@ async function formatFixtures() {
     { title: 'Word Document Book', author: 'Wendy Word', format: 'DOCX', toc: ['Chapter One', 'Chapter Two'], phrases: ['Some words', 'Bold run.', 'More words.'] });
 
   // the PDF is printed by a separate headless Chrome
-  const chrome = await puppeteer.launch({ headless: true });
+  const chrome = await puppeteer.launch({ headless: true, args: SANDBOX_ARGS });
   const pg = await chrome.newPage();
   const chapter = (t, n) => `<h1>${t}</h1>${[1, 2, 3].map((i) => `<p>${para(n * 10 + i)}</p>`).join('')}`;
   await pg.setContent(`<html><head><title>Portable Document Book</title><style>body{font:16px serif;width:420px}h1{font-size:30px;break-before:page}</style></head>

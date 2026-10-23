@@ -1,4 +1,4 @@
-// Desktop shell: `npm start` (dev) or `npm run dist` (Windows installer)
+// Desktop shell: `npm start` (dev) or `npm run dist` (installers for the system it runs on)
 // Serves the app from a private app:// origin so fetch() and IndexedDB work as they would on a website.
 const { app, BrowserWindow, Menu, protocol, net, shell, ipcMain, dialog } = require('electron');
 const { readFile, writeFile } = require('node:fs/promises');
@@ -10,6 +10,7 @@ const { pathToFileURL } = require('node:url');
 if (process.env.PORTABLE_EXECUTABLE_DIR) app.setPath('userData', join(process.env.PORTABLE_EXECUTABLE_DIR, 'Folio Data'));
 
 const ROOT = resolve(__dirname, '..');
+const IS_MAC = process.platform === 'darwin';
 const ORIGIN = 'app://folio';
 const STATE_FILE = join(app.getPath('userData'), 'window-state.json');
 
@@ -26,7 +27,7 @@ let pending = [];
 /* ---------- opening books from Explorer / the command line ---------- */
 
 // keep in step with FORMAT_OF in js/convert.js
-const BOOK_RE = /\.(epub|mobi|prc|azw3?|kf8|fb2|fbz|fb2\.zip|pdf|docx|html?|xhtml|md|markdown|txt)$/i;
+const BOOK_RE = /\.(epub|mobi|prc|azw3?|kf8|fb2|fbz|fb2\.zip|pdf|docx|html?|xhtml|md|markdown|txt|cbz|cbr|cbt|cb7)$/i;
 const bookArgs = (argv) => argv.filter((a) => BOOK_RE.test(a) && existsSync(a));
 
 async function queueFiles(paths) {
@@ -66,19 +67,25 @@ ipcMain.handle('save-file', async (e, name, data) => {
 
 ipcMain.handle('app-info', () => ({ version: app.getVersion() }));
 
-/* The window has no native title bar: Folio's own top bar takes its place, and Windows draws the
-   minimise, maximise and close buttons over it. The page tells us the colours under them, and the
-   height of the bar, so the buttons line up with it. */
+/* The window has no native title bar: Folio's own top bar takes its place, and the system's window
+   buttons sit over it (minimise, maximise and close on the right on Windows and Linux, the three
+   coloured buttons on the left on macOS). The page tells us the colours under them, and the height
+   of the bar, so the buttons line up with it. */
 const HEX = /^#[0-9a-f]{6}$/i;
 let titleColors = { color: '#0b0d14', symbolColor: '#e9ebf3' };
 let titleHeight = 68; // the library's top bar, which the window opens on
+
+// macOS places its buttons by their top-left corner; they're about 14px tall
+const macButtons = (height) => ({ x: 18, y: Math.round((height - 14) / 2) });
 
 ipcMain.on('title-bar', (e, color, symbolColor, height) => {
   if (!win || e.sender !== win.webContents || !HEX.test(color) || !HEX.test(symbolColor)) return;
   titleColors = { color, symbolColor };
   if (Number.isFinite(height) && height >= 24 && height <= 120) titleHeight = height;
   // the bar is measured in CSS pixels, which the app's zoom scales
-  win.setTitleBarOverlay({ ...titleColors, height: Math.round(titleHeight * win.webContents.getZoomFactor()) });
+  const px = Math.round(titleHeight * win.webContents.getZoomFactor());
+  if (IS_MAC) win.setWindowButtonPosition(macButtons(px));
+  else win.setTitleBarOverlay({ ...titleColors, height: px });
   win.setBackgroundColor(color);
 });
 
@@ -114,7 +121,7 @@ async function createWindow() {
     title: 'Folio',
     backgroundColor: titleColors.color,
     titleBarStyle: 'hidden',
-    titleBarOverlay: { ...titleColors, height: titleHeight },
+    ...(IS_MAC ? { trafficLightPosition: macButtons(titleHeight) } : { titleBarOverlay: { ...titleColors, height: titleHeight } }),
     show: false,
     icon: app.isPackaged ? undefined : join(ROOT, 'build', 'icon.png'),
     webPreferences: {
@@ -152,7 +159,7 @@ async function createWindow() {
 /* ---------- keyboard ---------- */
 
 /* With no title bar there's no menu bar either, and Windows only runs menu shortcuts from a menu
-   bar, so the window handles its own. Keys are written as [Ctrl+][Shift+]key. */
+   bar, so the window handles its own. Keys are written as [Ctrl+][Shift+]key, and Ctrl is ⌘ on a Mac. */
 const KEYS = {
   'Ctrl+O': () => win.webContents.send('add-books'),
   'Ctrl+Shift+O': () => win.webContents.send('add-folder'),
@@ -175,7 +182,38 @@ function keyName(input) {
   return (input.control || input.meta ? 'Ctrl+' : '') + (input.shift ? 'Shift+' : '') + (input.key.length === 1 ? input.key.toUpperCase() : input.key);
 }
 
+/* A Mac app keeps its menu in the menu bar, and the system's own shortcuts (copy, paste, quit,
+   hide) come from it. Folio's shortcuts are shown there but still handled by the window above. */
+function macMenu() {
+  const send = (channel) => () => { if (win) win.webContents.send(channel); };
+  return Menu.buildFromTemplate([
+    { role: 'appMenu' },
+    { label: 'File', submenu: [
+      { label: 'Add Books…', accelerator: 'Cmd+O', registerAccelerator: false, click: send('add-books') },
+      { label: 'Add a Folder…', accelerator: 'Cmd+Shift+O', registerAccelerator: false, click: send('add-folder') },
+      { type: 'separator' },
+      { role: 'close' },
+    ] },
+    { role: 'editMenu' },
+    { label: 'View', submenu: [
+      { label: 'Actual Size', accelerator: 'Cmd+0', registerAccelerator: false, click: () => win && win.webContents.setZoomLevel(0) },
+      { label: 'Zoom In', accelerator: 'Cmd+=', registerAccelerator: false, click: () => win && zoom(0.5) },
+      { label: 'Zoom Out', accelerator: 'Cmd+-', registerAccelerator: false, click: () => win && zoom(-0.5) },
+      { type: 'separator' },
+      { role: 'togglefullscreen' },
+    ] },
+    { role: 'windowMenu' },
+  ]);
+}
+
 /* ---------- boot ---------- */
+
+// macOS opens files (double-clicked in Finder, dropped on the Dock icon) with an event, not argv
+app.on('open-file', (e, path) => {
+  e.preventDefault();
+  if (BOOK_RE.test(path)) queueFiles([path]);
+  if (app.isReady() && !win) createWindow();
+});
 
 app.whenReady().then(() => {
   protocol.handle('app', (req) => {
@@ -184,9 +222,11 @@ app.whenReady().then(() => {
     if (host !== 'folio' || !file.startsWith(ROOT + sep)) return new Response('Not found', { status: 404 });
     return net.fetch(pathToFileURL(file).toString());
   });
-  Menu.setApplicationMenu(null);
+  Menu.setApplicationMenu(IS_MAC ? macMenu() : null);
   createWindow();
   queueFiles(bookArgs(process.argv.slice(1)));
 });
 
-app.on('window-all-closed', () => app.quit());
+// on a Mac the app stays open with no windows, and clicking its Dock icon opens one again
+app.on('window-all-closed', () => { if (!IS_MAC) app.quit(); });
+app.on('activate', () => { if (!win) createWindow(); });

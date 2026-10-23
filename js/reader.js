@@ -59,7 +59,30 @@ const ALIGNS = [
 ];
 
 function defaultSettings() {
-  return { tone: 'midnight', brightness: 0.5, font: 'georgia', fontSize: 100, margin: 1, lines: 1, align: 'original' };
+  // fit: how comic pages fill the screen, 'page' (whole page) or 'width' (scroll down a page)
+  return { tone: 'midnight', brightness: 0.5, font: 'georgia', fontSize: 100, margin: 1, lines: 1, align: 'original', fit: 'page' };
+}
+
+/* the picture a comic page shows: the src of a section that is just one image, or null */
+function pictureOf(html) {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  if (!doc.body || doc.body.textContent.replace(/\s+/g, '').length > 200) return null;
+  const pics = doc.body.querySelectorAll('img[src], image');
+  if (pics.length !== 1) return null;
+  const p = pics[0];
+  return p.getAttribute('src') || p.getAttribute('href') || p.getAttribute('xlink:href') || null;
+}
+
+/* width / height of a picture, or 0 when it can't be read */
+function aspectOf(src) {
+  return new Promise((res) => {
+    const img = new Image();
+    const done = () => res(img.naturalHeight ? img.naturalWidth / img.naturalHeight : 0);
+    img.onload = done;
+    img.onerror = done;
+    setTimeout(done, 8000);
+    img.src = src;
+  });
 }
 
 class Reader {
@@ -78,6 +101,11 @@ class Reader {
     this.settings = defaultSettings();
     this.lastSelection = '';
     this.opening = false;
+    this.comic = false;            // a comic or manga: every section is one page picture
+    this.rtl = false;              // its pages turn right to left
+    this.aspects = [];             // comics: each page's width / height
+    this.units = [];               // comics: the pages shown together in the two-page view
+    this.partner = null;           // comics: the second page on screen in the two-page view
   }
 
   mark(s) {
@@ -139,11 +167,61 @@ class Reader {
       this.mark('render' + i);
     }
     this.mark('prerender');
+    await this.openComic(book);
     record.totalChars = this.totalLen;
 
     const pos = record.pos || { spineIndex: 0, frac: 0 };
     await this.renderSection(pos.spineIndex, pos.frac);
     this.mark('rendered');
+  }
+
+  /* Comics and manga, and fixed-layout books made of page pictures: each section becomes a
+     bare page that fits its picture to the screen, and progress counts pages, not text */
+  async openComic(book) {
+    const meta = (book.packaging && book.packaging.metadata) || {};
+    const n = book.spine.length;
+    const pics = [];
+    for (let i = 0; i < n; i++) pics.push(pictureOf(this.htmlCache.get(i) || ''));
+    const found = pics.filter(Boolean).length;
+    this.comic = n > 0 && (meta.layout === 'pre-paginated' ? found >= n / 2 : n >= 4 && found >= n * 0.9);
+    this.units = [];
+    this.partner = null;
+    if (!this.comic) { this.rtl = false; return; }
+    pics.forEach((src, i) => {
+      if (src) this.htmlCache.set(i, `<!DOCTYPE html><html><head><title>Page ${i + 1}</title></head><body><img class="er-pic" src="${src.replace(/"/g, '&quot;')}" alt=""></body></html>`);
+    });
+    this.lens = pics.map(() => 1);
+    this.totalLen = n;
+    const own = this.record.rtl;
+    this.rtl = typeof own === 'boolean' ? own
+      : meta.direction === 'rtl' ? true : meta.direction === 'ltr' ? false
+      : !this.library || this.library.prefs.comicRtl !== false;
+    this.aspects = await Promise.all(pics.map((src) => (src ? aspectOf(src) : 0)));
+    /* the two-page view pairs pages like a printed book: the cover alone, then two at a time,
+       with wide pictures (double-page spreads) and pages without a picture on their own */
+    const alone = (i) => !pics[i] || this.aspects[i] > 1;
+    for (let i = 0; i < n;) {
+      if (i === 0 || alone(i) || i + 1 >= n || alone(i + 1)) this.units.push([i++]);
+      else { this.units.push([i, i + 1]); i += 2; }
+    }
+  }
+
+  /* comics: the pages that show with page i, or null when pages show one at a time */
+  comicUnit(i) {
+    if (!this.comic || this.settings.fit === 'width' || !this.wantSpread()) return null;
+    return this.units.find((u) => u.includes(i)) || [i];
+  }
+
+  /* comics: change which way the pages turn, for this book and as the default for new ones */
+  setRtl(rtl) {
+    this.rtl = !!rtl;
+    this.record.rtl = this.rtl;
+    if (this.library) {
+      this.library.prefs.comicRtl = this.rtl;
+      this.library.savePrefs();
+      this.library.saveRecord(this.record);
+    }
+    return this.rerender();
   }
 
   chapterName(i) {
@@ -184,6 +262,7 @@ class Reader {
       frac: !lead || frac === null || frac === undefined ? null : frac,
       anchor: lead && anchor || null,
       side,
+      comic: this.comic ? 1 : 0,
       dbg: (typeof window !== 'undefined' && window.__erDebug) ? 1 : 0,
     };
     /* tint search hits on the page they land on */
@@ -193,7 +272,14 @@ class Reader {
        on classed elements (body.calibre, p.txt…): the :not(#id) prefix lifts our specificity
        above any class selector. Inner backgrounds are cleared so the page colour shows through. */
     const R = ':root:not(#er-theme)';
-    const css = `
+    /* comic pages: the picture fills the page, and in the two-page view the pages meet at the fold */
+    const fitWidth = s.fit === 'width';
+    const comicCss = `
+${R}{background:${bg} !important;scrollbar-width:none;}
+${R} body{background:${bg} !important;color:${fg} !important;margin:0;padding:0;${fitWidth ? '' : `min-height:100vh;display:flex;align-items:center;justify-content:${side === 'left' ? 'flex-end' : side === 'right' ? 'flex-start' : 'center'};`}}
+img.er-pic{display:block;margin:0 auto;${fitWidth ? 'width:100%;height:auto;' : 'max-width:100%;max-height:100vh;width:auto;height:auto;object-fit:contain;'}user-select:none;-webkit-user-drag:none;}
+`;
+    const css = this.comic ? comicCss : `
 ${R}{background:${bg} !important;zoom:${s.fontSize / 100};scrollbar-width:none;}
 ${R} body{background:${bg} !important;color:${fg} !important;max-width:${m.width};margin:0 auto;padding:${m.vert}px min(${m.side}px, 6vw);}
 ${R} body *:not(mark){color:inherit !important;background-color:transparent !important;}
@@ -434,13 +520,23 @@ try{
       if (Math.abs(ev.clientX - erDown.x) > 10 || Math.abs(ev.clientY - erDown.y) > 10) { erDown = null; return; }
       var erW = window.innerWidth;
       var erDir = 0;
+      /* comics: the outer part of each page turns towards that side; the app maps it to next or previous */
+      if (d.comic) {
+        if (d.side === 'left') { if (ev.clientX < erW * 0.5) erDir = -1; }
+        else if (d.side === 'right') { if (ev.clientX > erW * 0.5) erDir = 1; }
+        else if (ev.clientX < erW * 0.35) erDir = -1;
+        else if (ev.clientX > erW * 0.65) erDir = 1;
+        erDown = null;
+        erPost(erDir ? {t:'turn', dir:erDir, side:1} : {t:'tap'});
+        return;
+      }
       if (d.side === 'left') { if (ev.clientX < erW * 0.24) erDir = -1; }
       else if (d.side === 'right') { if (ev.clientX > erW * 0.76) erDir = 1; }
       else if (ev.clientX > erW * 0.72) erDir = 1;
       else if (ev.clientX < erW * 0.12) erDir = -1;
       erDown = null;
       if (ev.target && ev.target.closest && ev.target.closest('a')) return;
-      erPost(erDir ? {t:'turn', dir:erDir} : {t:'tap'});
+      erPost(erDir ? {t:'turn', dir:erDir, side:1} : {t:'tap'});
     }catch(e2){}
   });
 
@@ -501,7 +597,14 @@ try{
     const book = this.book;
     if (spineIndex < 0 || spineIndex >= book.spine.length) return;
 
-    const spread = this.wantSpread();
+    let spread = this.wantSpread();
+    /* comics: the two-page view shows a pair of sections, starting from the pair's first page */
+    let partner = null;
+    if (this.comic) {
+      const unit = this.comicUnit(spineIndex);
+      if (unit) { spineIndex = unit[0]; partner = unit.length > 1 ? unit[1] : null; }
+      spread = partner !== null;
+    }
 
     /* same section, no search jump: scroll the live frame, never rebuild it */
     if (this.frame && this.renderedSection === spineIndex && !query && !anchor && this.doc() && spread === !!this.frame2) {
@@ -522,21 +625,23 @@ try{
       return;
     }
     this.spineIndex = spineIndex;
+    this.partner = partner;
 
-    if (!this.htmlCache.has(spineIndex)) {
-      const sec = book.spine.get(spineIndex);
+    for (const i of [spineIndex, partner]) {
+      if (i === null || this.htmlCache.has(i)) continue;
+      const sec = book.spine.get(i);
       let html = '';
       try { html = await sec.render(book.load.bind(book)); } catch (err) { html = ''; }
-      this.htmlCache.set(spineIndex, html);
+      this.htmlCache.set(i, html);
     }
 
-    const make = (side) => {
+    const make = (side, index = spineIndex) => {
       const f = document.createElement('iframe');
       f.className = 'er-frame' + (side === 'right' ? ' er-right' : '');
       f.title = side === 'right' ? 'Book page (right)' : 'Book page';
       f.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-popups');
       f.loaded = new Promise((res) => { f.addEventListener('load', res); });
-      f.srcdoc = this.buildFrameHtml(spineIndex, frac, query, nth, side, anchor);
+      f.srcdoc = this.buildFrameHtml(index, frac, query, nth, side, anchor);
       if (this.flipDir && !this.animateOff()) {
         if (spread) {
           f.style.opacity = '0.3';
@@ -549,8 +654,10 @@ try{
       }
       return f;
     };
-    const frame = make(spread ? 'left' : 'single');
-    const right = spread ? make('right') : null;
+    /* in a right-to-left comic the first page of a pair is on the right */
+    const lead = spread ? (this.comic && this.rtl ? 'right' : 'left') : 'single';
+    const frame = make(lead);
+    const right = spread ? (this.comic ? make(lead === 'left' ? 'right' : 'left', partner) : make('right')) : null;
 
     let stage = document.querySelector('.read-stage');
     if (!stage) {
@@ -561,6 +668,7 @@ try{
       read.appendChild(stage);
     }
     stage.classList.toggle('spread', spread);
+    stage.classList.toggle('comic', this.comic);
     /* keep the old page on screen until the new one has laid out: no blank flash */
     const olds = this.pages();
     for (const f of [frame, right]) {
@@ -624,12 +732,14 @@ try{
     const stage = document.querySelector('.read-stage');
     const w = stage ? stage.clientWidth : window.innerWidth;
     const h = stage ? stage.clientHeight : window.innerHeight;
-    return w >= 1100 && w >= h * 1.4;
+    // two comic pages fit side by side sooner than two columns of text
+    return this.comic ? w >= 760 && w >= h * 1.15 : w >= 1100 && w >= h * 1.4;
   }
 
   /* two-page view: the left page always shows an even page of the section, the right one
      the page after it, or nothing at the end of a section */
   syncSpread() {
+    if (this.comic) return;
     const right = this.frame2;
     const d = this.doc();
     const rd = right && right.contentDocument;
@@ -697,6 +807,17 @@ try{
   metrics() {
     const d = this.doc();
     if (!d) return { page: 1, pages: 1, pct: 0, chapter: '' };
+    if (this.comic) {
+      const n = this.book.spine.length;
+      const { pi, pages } = this.pageIndex();
+      const frac = pages > 1 ? pi / (pages - 1) : 0;
+      const last = this.frame2 && this.partner !== null ? this.partner : this.spineIndex;
+      this.record.pos = { spineIndex: this.spineIndex, frac };
+      const atEnd = last === n - 1 && pi === pages - 1;
+      const pct = atEnd ? 100 : Math.min(99, Math.round(((this.spineIndex + frac) / n) * 100));
+      this.record.pct = pct;
+      return { page: this.spineIndex + 1, lastPage: last + 1, pages: n, pct, chars: this.spineIndex + frac, chapter: this.toc.length > 1 ? this.chapterName(this.spineIndex) : '' };
+    }
     const se = d.scrollingElement;
     const tops = this.pageTops();
     const pages = tops.length;
@@ -829,7 +950,40 @@ try{
     this.flipping = false;
   }
 
+  /* comics: a page taller than the screen scrolls first, then the next page or pair comes in.
+     The page swings the way it would in the book, so leftwards in a right-to-left manga. */
+  async stepComic(dir) {
+    const tops = this.pageTops();
+    const { pi } = this.pageIndex();
+    const within = dir > 0 ? pi + 1 < tops.length : pi > 0;
+    let target = null;
+    if (!within) {
+      const units = this.comicUnit(this.spineIndex) ? this.units : null;
+      if (units) {
+        const u = units.findIndex((x) => x.includes(this.spineIndex));
+        target = units[u + dir] ? units[u + dir][0] : null;
+      } else if (this.spineIndex + dir >= 0 && this.spineIndex + dir < this.book.spine.length) target = this.spineIndex + dir;
+      if (target === null) {
+        if (window.app) window.app.toast(dir > 0 ? 'You have reached the end of the book' : 'You are at the beginning of the book');
+        return;
+      }
+    }
+    const side = this.rtl ? -dir : dir;
+    await this.flipOut(side);
+    if (within) this.doc().scrollingElement.scrollTop = tops[pi + dir];
+    else await this.renderSection(target, dir > 0 ? 0 : 1);
+    await this.flipIn(side);
+    this.flipping = false;
+    this.updateMask();
+    this.metrics();
+    if (this.library) {
+      this.library.touch(this.record.id);
+      this.library.saveRecord(this.record);
+    }
+  }
+
   async nextPage() {
+    if (this.comic) return this.stepComic(1);
     const tops = this.pageTops();
     const se = this.doc().scrollingElement;
     const maxTop = Math.max(0, se.scrollHeight - this.viewH());
@@ -854,6 +1008,7 @@ try{
   }
 
   async prevPage() {
+    if (this.comic) return this.stepComic(-1);
     const tops = this.pageTops();
     const se = this.doc().scrollingElement;
     const maxTop = Math.max(0, se.scrollHeight - this.viewH());
@@ -982,7 +1137,7 @@ try{
       type: 'bookmark',
       spineIndex: this.spineIndex,
       frac: this.record.pos.frac,
-      label: this.chapterName(this.spineIndex),
+      label: this.comic ? 'Page ' + (this.spineIndex + 1) : this.chapterName(this.spineIndex),
       pct: m.pct,
       time: Date.now(),
     };

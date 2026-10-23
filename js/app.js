@@ -43,7 +43,7 @@ const SHORTCUTS = [
     [['←', 'PgUp'], 'Previous page'],
     [['Home', 'End'], 'Beginning / end of book'],
     [['T'], 'Contents'],
-    [['F', 'Ctrl F'], 'Search in book'],
+    [['F', MOD + ' F'], 'Search in book'],
     [['A'], 'Annotations'],
     [['S'], 'Appearance'],
     [['B'], 'Toggle bookmark'],
@@ -53,8 +53,12 @@ const SHORTCUTS = [
     [['+', '−'], 'Text size'],
     [['Esc'], 'Close panel'],
   ]],
+  ['Comics and manga', [
+    [['←', '→'], 'Turn the page the way the book reads (← is next in right-to-left manga)'],
+    [['D'], 'Switch reading direction'],
+  ]],
   ['Library', [
-    [['/', 'Ctrl F'], 'Search library'],
+    [['/', MOD + ' F'], 'Search library'],
     [['Esc'], 'Clear search'],
   ]],
 ];
@@ -907,6 +911,18 @@ class App {
     bright.addEventListener('change', () => this.setReading({ brightness: bright.value / 100 }));
     out.appendChild(this.setting('Brightness', bright));
 
+    if (!full && this.reader.comic) {
+      out.appendChild(this.setting('Reading direction', this.seg([
+        { id: true, name: 'Right to left', icon: h('span', 'Right to left') },
+        { id: false, name: 'Left to right', icon: h('span', 'Left to right') },
+      ], this.reader.rtl, (v) => this.setDirection(v), 'Reading direction'), 'Manga reads right to left. Press D to switch.'));
+      out.appendChild(this.setting('Fit', this.seg([
+        { id: 'page', name: 'Whole page', icon: h('span', 'Whole page') },
+        { id: 'width', name: 'Width', icon: h('span', 'Width') },
+      ], s.fit === 'width' ? 'width' : 'page', (v) => this.setReading({ fit: v }), 'Fit'), 'Width scrolls down tall pages and webtoons, one page at a time.'));
+      return out;
+    }
+
     const font = h('select.select', { 'aria-label': 'Font', onchange: () => this.setReading({ font: font.value }) },
       FONTS.map((f) => h('option', { value: f.id }, f.name)));
     font.value = s.font;
@@ -963,7 +979,11 @@ class App {
       h('option', { value: '' }, 'Match the book’s language'),
       voices.map((v) => h('option', { value: v.name }, v.name.replace(/^Microsoft /, '').replace(/ - .*$/, '').replace(/ Desktop$/, '') + ' · ' + v.lang)));
     sel.value = this.prefs.ttsVoice || '';
-    return this.setting('Read-aloud voice', sel, 'Press R while reading to listen. Folio uses the voices installed in Windows; add more under Settings › Time & language › Speech.');
+    const more = {
+      win32: 'the voices installed in Windows; add more under Settings › Time & language › Speech',
+      darwin: 'the voices installed in macOS; add more under System Settings › Accessibility › Spoken Content',
+    }[PLATFORM] || 'the voices installed on your computer (on Linux, through speech-dispatcher)';
+    return this.setting('Read-aloud voice', sel, 'Press R while reading to listen. Folio uses ' + more + '.');
   }
 
   shortcutsEl() {
@@ -1178,7 +1198,7 @@ class App {
       ['Time left', this.timeLeft(rec)],
       ['Highlights', String((rec.annotations || []).length)],
       ['Bookmarks', String((rec.bookmarks || []).length)],
-      ['Sections', String(rec.chapters || '—')],
+      [isOpen && this.reader.comic ? 'Pages' : 'Sections', String(rec.chapters || '—')],
       ['Added', fmtAgo(rec.added)],
       ['Last opened', fmtAgo(rec.lastOpened)],
       ['Format', rec.format && rec.format !== 'EPUB' ? rec.format + ' (converted to EPUB)' : 'EPUB'],
@@ -1228,6 +1248,7 @@ class App {
       return;
     }
     if (this.screen !== 'read' || this.reader.record !== rec) return;
+    this.applyComic();
     this.readScreen.classList.remove('loading');
     this.library.touch(rec.id);
     this.refreshProgress();
@@ -1266,7 +1287,7 @@ class App {
 
     this.bmBtn = iconButton('bookmark', 'Bookmark this page (B)', () => this.toggleBookmark(), 'rd-bm');
     this.aaBtn = h('button.icon-btn.aa-btn', { type: 'button', 'aria-label': 'Appearance (S)', title: 'Appearance (S)', 'aria-haspopup': 'dialog', onclick: () => this.togglePopover() }, 'Aa');
-    this.ttsBtn = ReadAloud.supported() ? iconButton('speaker', 'Read aloud (R)', () => this.speech.toggle(), 'rd-tts') : null;
+    this.ttsBtn = ReadAloud.supported() ? iconButton('speaker', 'Read aloud (R)', () => this.speech.toggle(), 'rd-tts.no-comic') : null;
     const moreBtn = h('button.icon-btn', {
       type: 'button', 'aria-label': 'More', title: 'More', 'aria-haspopup': 'menu',
       onclick: () => this.openMenu(moreBtn, [
@@ -1291,7 +1312,7 @@ class App {
       this.rdChapter,
       h('div.rd-right',
         iconButton('toc', 'Contents (T)', () => this.toggleDrawer('toc'), 'rd-panel'),
-        iconButton('search', 'Search in book (F)', () => this.toggleDrawer('search'), 'rd-panel'),
+        iconButton('search', 'Search in book (F)', () => this.toggleDrawer('search'), 'rd-panel.no-comic'),
         iconButton('pen', 'Annotations (A)', () => this.toggleDrawer('marks'), 'rd-panel'),
         h('span.rd-sep'),
         this.aaBtn,
@@ -1317,8 +1338,8 @@ class App {
       this.rdTop,
       stage,
       this.rdLoading,
-      h('button.rd-nav.rd-prev', { type: 'button', 'aria-label': 'Previous page', onclick: () => this.turn(-1) }, icon('left', 22)),
-      h('button.rd-nav.rd-next', { type: 'button', 'aria-label': 'Next page', onclick: () => this.turn(1) }, icon('right', 22)),
+      h('button.rd-nav.rd-prev', { type: 'button', 'aria-label': 'Previous page', onclick: () => this.turnSide(-1) }, icon('left', 22)),
+      h('button.rd-nav.rd-next', { type: 'button', 'aria-label': 'Next page', onclick: () => this.turnSide(1) }, icon('right', 22)),
       this.rdBottom,
     );
   }
@@ -1374,6 +1395,29 @@ class App {
   seekBy(dir) {
     const go = dir > 0 ? this.reader.goEnd() : this.reader.goBeginning();
     go.then(() => this.refreshProgress());
+  }
+
+  /* comics: hide what needs text, and label the side arrows for the reading direction */
+  applyComic() {
+    const r = this.reader;
+    this.readScreen.classList.toggle('is-comic', r.comic);
+    this.readScreen.classList.toggle('is-rtl', r.comic && r.rtl);
+    const [left, right] = [this.readScreen.querySelector('.rd-prev'), this.readScreen.querySelector('.rd-next')];
+    if (left) left.setAttribute('aria-label', r.comic && r.rtl ? 'Next page' : 'Previous page');
+    if (right) right.setAttribute('aria-label', r.comic && r.rtl ? 'Previous page' : 'Next page');
+  }
+
+  setDirection(rtl) {
+    if (!this.reader.comic) return;
+    this.reader.setRtl(rtl).then(() => this.refreshProgress());
+    this.applyComic();
+    if (this.popoverEl) this.fillAppearance();
+    this.toast(rtl ? 'Reading right to left' : 'Reading left to right', 'sparkle');
+  }
+
+  /* a turn towards the left or right side of the screen: in a right-to-left manga, left is next */
+  turnSide(side) {
+    this.turn(this.reader.comic && this.reader.rtl ? -side : side);
   }
 
   /* one page per press, however it was requested (key, click, wheel, button) */
@@ -1555,6 +1599,7 @@ class App {
     const d = this.drawer('toc', 'Contents', 'left');
     const rec = this.reader.record;
     d.appendChild(h('div.toc-book', this.coverEl(rec), h('div', h('div.toc-title', rec.title), h('div.toc-author', rec.author || ''))));
+    if (this.reader.comic) { d.appendChild(this.pageGrid()); this.markToc(true); return; }
     const ol = h('ol.toc-list');
     this.reader.toc.forEach((t) => {
       ol.appendChild(h('li', h('button.toc-item', {
@@ -1567,11 +1612,29 @@ class App {
     this.markToc(true);
   }
 
+  /* comics: a grid of the pages, with each chapter's name over its first page */
+  pageGrid() {
+    const r = this.reader;
+    const grid = h('div.page-grid', { dir: r.rtl ? 'rtl' : 'ltr' });
+    const chapters = new Map(r.toc.length > 1 ? r.toc.map((t) => [t.spineIndex, t.label]) : []);
+    for (let i = 0; i < r.book.spine.length; i++) {
+      const src = (r.htmlCache.get(i) || '').match(/<img class="er-pic" src="([^"]+)"/);
+      if (chapters.has(i)) grid.appendChild(h('div.page-chapter', { dir: 'auto' }, chapters.get(i)));
+      grid.appendChild(h('button.page-thumb.toc-item', {
+        type: 'button', 'data-spine': i, 'aria-label': 'Page ' + (i + 1),
+        onclick: () => this.reader.renderSection(i, 0).then(() => this.refreshProgress()),
+      }, src ? h('img', { src: src[1].replace(/&quot;/g, '"'), alt: '', loading: 'lazy', decoding: 'async' }) : h('span.page-blank'), h('span.page-num', String(i + 1))));
+    }
+    return h('div.drawer-body', grid);
+  }
+
   markToc(scroll) {
     const items = [...this.readScreen.querySelectorAll('.toc-item')];
     let cur = null;
     for (const it of items) if (Number(it.dataset.spine) <= this.reader.spineIndex) cur = it;
-    items.forEach((it) => it.classList.toggle('on', it === cur));
+    // a comic's two-page view has a second page on screen too
+    const also = this.reader.comic && this.reader.frame2 ? this.reader.partner : null;
+    items.forEach((it) => it.classList.toggle('on', it === cur || Number(it.dataset.spine) === also));
     if (cur && scroll) cur.scrollIntoView({ block: 'center' });
   }
 
@@ -1760,20 +1823,21 @@ class App {
     }
 
     if (this.screen !== 'read' || !this.reader.book) return;
-    if (ctrl && (k === 'f' || k === 'F')) { e.preventDefault(); this.openSearch(); return; }
+    if (ctrl && (k === 'f' || k === 'F')) { e.preventDefault(); if (!this.reader.comic) this.openSearch(); return; }
     if (typing || ctrl || e.altKey) return;
     if (this.menuEl) return;
 
     const act = {
-      ArrowRight: () => this.turn(1), ArrowDown: () => this.turn(1), ' ': () => this.turn(1), PageDown: () => this.turn(1),
-      ArrowLeft: () => this.turn(-1), ArrowUp: () => this.turn(-1), PageUp: () => this.turn(-1),
+      ArrowRight: () => this.turnSide(1), ArrowDown: () => this.turn(1), ' ': () => this.turn(1), PageDown: () => this.turn(1),
+      ArrowLeft: () => this.turnSide(-1), ArrowUp: () => this.turn(-1), PageUp: () => this.turn(-1),
       Home: () => this.seekBy(-1), End: () => this.seekBy(1),
       t: () => this.toggleDrawer('toc'),
-      f: () => this.toggleDrawer('search'),
+      f: () => { if (!this.reader.comic) this.toggleDrawer('search'); },
+      d: () => this.setDirection(!this.reader.rtl),
       a: () => this.toggleDrawer('marks'), m: () => this.toggleDrawer('marks'),
       s: () => this.togglePopover(),
       b: () => this.toggleBookmark(),
-      r: () => this.speech.toggle(),
+      r: () => { if (!this.reader.comic) this.speech.toggle(); },
       i: () => this.showDetails(this.reader.record),
       h: () => {
         if (this.reader.lastSelection) { this.reader.addHighlight('yellow'); this.hideSelBar(); this.toast('Highlight saved', 'pen'); if (this.panel === 'marks') this.openMarks(); }
@@ -1812,7 +1876,7 @@ class App {
     else if (d.t === 'selclear') { this.reader.lastSelection = ''; this.hideSelBar(); this.hidePop(); this.closeMenu(); this.closePopover(); }
     else if (d.t === 'link') this.followLink(d, frame);
     else if (d.t === 'key') this.key({ key: d.key, ctrlKey: !!d.ctrl, metaKey: false, fromFrame: true });
-    else if (d.t === 'turn') this.turn(Number(d.dir));
+    else if (d.t === 'turn') { if (d.side) this.turnSide(Number(d.dir)); else this.turn(Number(d.dir)); }
     else if (d.t === 'tap') {
       if (this.panel) this.closeDrawer();
       else if (this.prefs.autoHide) {

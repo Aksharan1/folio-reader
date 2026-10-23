@@ -251,7 +251,11 @@ body.reading .shell { display: none; }
 .main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 /* The window has no title bar. The top bars drag the window, and leave room on the right for the
    minimise, maximise and close buttons Windows draws there (env() gives the space beside them). */
-:root { --window-buttons: calc(100vw - env(titlebar-area-width, 100vw)); }
+:root { --window-buttons: calc(100vw - env(titlebar-area-width, 100vw)); --window-buttons-left: 0px; }
+/* macOS draws its three window buttons at the top left instead: the sidebar starts below them, and
+   the reader's top bar leaves room for them (the shell centres them in whichever bar shows) */
+:root[data-platform="darwin"] { --window-buttons-left: 72px; }
+:root[data-platform="darwin"] .sidebar { padding-top: 54px; }
 .topbar {
   display: flex; align-items: center; gap: 14px; flex: none;
   height: 68px; padding: 0 calc(32px + var(--window-buttons)) 0 32px; border-bottom: 1px solid var(--line);
@@ -623,7 +627,7 @@ body.reading .toast { bottom: 72px; }
 
 .rd-top {
   position: absolute; z-index: 5; top: 0; left: 0; right: 0; height: 56px;
-  display: flex; align-items: center; gap: 16px; padding: 0 calc(12px + var(--window-buttons)) 0 12px;
+  display: flex; align-items: center; gap: 16px; padding: 0 calc(12px + var(--window-buttons)) 0 calc(12px + var(--window-buttons-left));
   border-bottom: 1px solid var(--rd-line); transition: opacity .3s;
   -webkit-app-region: drag;
 }
@@ -670,6 +674,12 @@ body.reading .toast { bottom: 72px; }
 .read-stage.spread iframe { width: 50%; }
 .read-stage.spread iframe.er-right { left: 50%; }
 .read-stage iframe.er-blank { visibility: hidden; }
+/* comic pages meet at the fold, so it's drawn as a soft shadow over the art rather than a line */
+.read-stage.comic.spread::after {
+  top: 0; bottom: 0; width: 40px; margin-left: -20px;
+  background: linear-gradient(90deg, transparent, rgba(0, 0, 0, .10) 45%, rgba(0, 0, 0, .16) 50%, rgba(0, 0, 0, .10) 55%, transparent);
+}
+.screen-read.is-comic .no-comic { display: none; }
 .read-stage.spread::after {
   content: ""; position: absolute; z-index: 3; top: 3%; bottom: 3%; left: 50%; width: 1px;
   background: linear-gradient(transparent, var(--rd-line) 12%, var(--rd-line) 88%, transparent); pointer-events: none;
@@ -781,6 +791,21 @@ body.reading .toast { bottom: 72px; }
 .toc-item:hover { background: var(--surface-2); color: var(--ink); }
 .toc-item.on { background: var(--accent-soft); color: var(--ink); box-shadow: inset 2px 0 0 var(--accent); font-weight: 550; }
 
+/* comics: the contents are the pages themselves, in reading order (right to left for manga) */
+.page-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px 10px; padding-top: 4px; }
+.page-chapter { grid-column: 1 / -1; margin-top: 6px; font-size: 12.5px; font-weight: 600; color: var(--ink-2); }
+.page-thumb.toc-item {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 6px;
+  font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums;
+}
+.page-thumb img, .page-blank {
+  width: 100%; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 4px;
+  background: var(--surface-3); box-shadow: 0 2px 8px rgba(0, 0, 0, .25);
+}
+.page-thumb.on { box-shadow: none; }
+.page-thumb.on img { outline: 2px solid var(--accent); outline-offset: 2px; }
+.page-thumb.on .page-num { color: var(--ink); }
+
 .sel-bar {
   position: fixed; z-index: 60; display: flex; align-items: center; gap: 7px; padding: 6px 8px;
   background: var(--elev); color: var(--ink); border: 1px solid var(--line-strong); border-radius: 12px;
@@ -857,7 +882,7 @@ body.reading .toast { bottom: 72px; }
   .nav-scrim { position: fixed; inset: 0; z-index: 90; background: rgba(0, 0, 0, .5); display: none; }
   body.nav-open .nav-scrim { display: block; }
   .nav-toggle { display: inline-grid; }
-  .topbar { padding: 0 calc(16px + var(--window-buttons)) 0 16px; gap: 10px; height: 60px; }
+  .topbar { padding: 0 calc(16px + var(--window-buttons)) 0 calc(16px + var(--window-buttons-left)); gap: 10px; height: 60px; }
   .topbar .btn-primary > span:not(.ic) { display: none; }
   .topbar .btn-primary { width: 40px; padding: 0; }
   .search-kbd, .view-toggle { display: none !important; }
@@ -874,7 +899,7 @@ body.reading .toast { bottom: 72px; }
   .popover .range { width: 140px; }
   .drawer { width: 100vw; }
   .rd-author, .rd-sep { display: none; }
-  .rd-top { gap: 6px; padding: 0 calc(6px + var(--window-buttons)) 0 6px; }
+  .rd-top { gap: 6px; padding: 0 calc(6px + var(--window-buttons)) 0 calc(6px + var(--window-buttons-left)); }
   .rd-right .icon-btn { width: 34px; }
   .rd-bottom { padding: 0 14px; gap: 12px; }
   .rd-page { min-width: 0; }

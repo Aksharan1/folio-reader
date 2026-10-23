@@ -7,7 +7,11 @@ on:
 
 jobs:
   test:
-    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -18,4 +22,8 @@ jobs:
       - run: npm ci
       # make sure Electron's binary is present even if install scripts were skipped
       - run: node node_modules/electron/install.js
-      - run: npm test
+      # Linux runners have no screen, so the app gets a virtual one
+      - if: runner.os == 'Linux'
+        run: xvfb-run -a npm test
+      - if: runner.os != 'Linux'
+        run: npm test
