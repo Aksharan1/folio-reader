@@ -28,7 +28,7 @@ body:
       label: Installed or portable?
       options: [Installed, Portable, Running from source]
   - type: input
-    id: windows
+    id: system
     attributes:
-      label: Windows version
-      placeholder: Windows 11 24H2
+      label: Operating system and version
+      placeholder: Windows 11 24H2, macOS 15.4, Ubuntu 24.04…

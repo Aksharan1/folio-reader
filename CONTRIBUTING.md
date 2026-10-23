@@ -6,7 +6,7 @@ Thanks for helping. Folio is meant to stay a small, fast reader, so the most use
 
 [Open an issue](https://github.com/Aksharan1/folio-reader/issues/new/choose) and include:
 
-- your Folio version (Settings → Library & Data → About Folio) and Windows version
+- your Folio version (Settings → Library & Data → About Folio) and your operating system and its version
 - what you did, what you expected, and what happened instead
 - for a book that won't open or looks wrong, its format and where it came from. Please don't attach books you don't have the rights to share. A public-domain book that shows the same problem is ideal.
 
@@ -16,7 +16,7 @@ Open an issue before you write code, so we can agree it fits. Features that most
 
 ## Working on the code
 
-You need Node.js 22.13 or newer on Windows 10 or 11.
+You need Node.js 22.13 or newer, on Windows, macOS or Linux.
 
 ```bash
 npm install
@@ -36,6 +36,6 @@ Some conventions:
 
 ## Pull requests
 
-Keep each pull request to one change. Describe what it does and how you tested it, and include before-and-after screenshots for visual changes. CI runs `npm test` on Windows for every pull request.
+Keep each pull request to one change. Describe what it does and how you tested it, and include before-and-after screenshots for visual changes. CI runs `npm test` on Windows, macOS and Linux for every pull request.
 
 By contributing, you agree that your work is released under the [MIT licence](LICENSE).
