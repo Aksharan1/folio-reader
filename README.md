@@ -31,7 +31,7 @@ No account, no cloud, no tracking.
 
 Folio in 20 seconds: two-page reading, the five themes, manga right to left and read aloud.
 
-<a href="docs/video/folio-tour.mp4"><img src="docs/video/folio-tour.jpg" width="720" alt="Play the 20-second tour of Folio"></a>
+https://github.com/user-attachments/assets/08f8f206-4e1d-445f-bd0c-23c4ecc38b27
 
 ## Download
 
