@@ -16,7 +16,7 @@ No account, no cloud, no tracking.
 
 <img src="docs/screenshots/hero.png" alt="Frankenstein open in two-page view on a sepia page, with Little Nemo in Slumberland open in front of it">
 
-**[⬇ Download for Windows, Mac or Linux](#download)** · [Features](#features) · [Manga and comics](#manga-and-comics) · [Formats](#supported-formats) · [Shortcuts](#keyboard-shortcuts) · [Build from source](#building-from-source)
+**[⬇ Download for Windows, Mac or Linux](#download)** · [▶ Watch the tour](#watch-the-tour) · [Features](#features) · [Manga and comics](#manga-and-comics) · [Formats](#supported-formats) · [Shortcuts](#keyboard-shortcuts) · [Build from source](#building-from-source)
 
 </div>
 
@@ -26,6 +26,12 @@ No account, no cloud, no tracking.
 | --- | --- | --- |
 | 📖 **Reads like a book**<br>Two pages side by side, page turns that never cut a line in half, and a warm Sepia page that's easy on the eyes. | 🎌 **Manga, the right way round**<br>Comics open as full pages. Manga reads right to left, with spreads paired like the printed volume. | 🔒 **Yours alone**<br>No account and no telemetry. Your library, progress and notes stay on your computer. |
 | 🗂 **Every format you own**<br>EPUB, MOBI and AZW3, PDF (even scanned ones), CBZ, CBR, FB2, Word, Markdown and text. | ✍️ **Notes that travel**<br>Highlights in five colours, notes and bookmarks. Import Kindle highlights, export Markdown. | 🔊 **Look up and listen**<br>Define any word from Wiktionary, or have the book read to you in a natural voice while the pages turn. |
+
+## Watch the tour
+
+Folio in 20 seconds: two-page reading, the five themes, manga right to left and read aloud.
+
+<a href="docs/video/folio-tour.mp4"><img src="docs/video/folio-tour.jpg" width="720" alt="Play the 20-second tour of Folio"></a>
 
 ## Download
 
